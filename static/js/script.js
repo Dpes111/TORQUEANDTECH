@@ -11,8 +11,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (hamburger) {
     hamburger.addEventListener('click', () => {
-      navMenu?.classList.toggle('open');
+      const navOpen = navMenu?.classList.toggle('open');
       navActions?.classList.toggle('open');
+
+      // Push actions below nav when both are open
+      if (navActions && navMenu) {
+        const navHeight = navMenu.offsetHeight;
+        if (navOpen) {
+          navActions.style.top = (60 + navHeight) + 'px';
+        } else {
+          navActions.style.top = '';
+        }
+      }
+    });
+
+    // Close menu when a nav link is clicked
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu?.classList.remove('open');
+        navActions?.classList.remove('open');
+      });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.navbar-inner')) {
+        navMenu?.classList.remove('open');
+        navActions?.classList.remove('open');
+      }
     });
   }
 
