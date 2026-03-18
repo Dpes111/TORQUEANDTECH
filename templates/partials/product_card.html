@@ -3,9 +3,17 @@
     <div class="product-img">
       {% set emoji_map = {'Name Signs':'🏷️','Keychains':'🗝️','Decorative Models':'🗼','Functional Products':'🔧'} %}
       {% if product['image'] and product['image'] != 'default.png' %}
-        <img src="{{ url_for('static', filename='images/products/' + product['image']) }}"
-             alt="{{ product['name'] }}"
-             onerror="this.style.display='none';this.parentElement.innerHTML='<span>' + ({{ emoji_map | tojson }}['{{ product['category'] }}'] || '🖨️') + '</span>';">
+        {% if product['image'].startswith('http') %}
+          <img src="{{ product['image'] }}"
+               alt="{{ product['name'] }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <span style="display:none;">{{ emoji_map.get(product['category'], '🖨️') }}</span>
+        {% else %}
+          <img src="{{ url_for('static', filename='images/products/' + product['image']) }}"
+               alt="{{ product['name'] }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <span style="display:none;">{{ emoji_map.get(product['category'], '🖨️') }}</span>
+        {% endif %}
       {% else %}
         <span>{{ emoji_map.get(product['category'], '🖨️') }}</span>
       {% endif %}
@@ -22,9 +30,7 @@
       <div class="product-price">Rs. {{ "%.2f"|format(product['price']) }}</div>
       <form action="{{ url_for('add_to_cart', product_id=product['id']) }}" method="POST">
         <input type="hidden" name="quantity" value="1">
-        <button type="submit" class="btn btn-primary btn-sm">
-          + Cart
-        </button>
+        <button type="submit" class="btn btn-primary btn-sm">+ Cart</button>
       </form>
     </div>
   </div>
