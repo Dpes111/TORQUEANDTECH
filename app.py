@@ -1,6 +1,6 @@
 """
 3D Print Shop - Flask Backend
-Supports PostgreSQL (Supabase) and SQLite
+Supports PostgreSQL (Supabase) + Supabase Storage for files
 """
 
 import os
@@ -22,44 +22,136 @@ app.secret_key = os.environ.get("SECRET_KEY", "3dprint-secret-key-change-in-prod
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-STL_FOLDER = os.path.join(UPLOAD_FOLDER, "stl_files")
-PAYMENT_FOLDER = os.path.join(UPLOAD_FOLDER, "payment_screenshots")
-PRODUCT_IMAGE_FOLDER = os.path.join(BASE_DIR, "static", "images", "products")
-
 ALLOWED_STL = {"stl", "obj"}
 ALLOWED_IMAGES = {"png", "jpg", "jpeg", "gif", "webp"}
 ALLOWED_SCREENSHOTS = {"png", "jpg", "jpeg", "gif", "webp"}
 
+# Keep local folders as fallback
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+STL_FOLDER = os.path.join(UPLOAD_FOLDER, "stl_files")
+PAYMENT_FOLDER = os.path.join(UPLOAD_FOLDER, "payment_screenshots")
+PRODUCT_IMAGE_FOLDER = os.path.join(BASE_DIR, "static", "images", "products")
 for folder in [STL_FOLDER, PAYMENT_FOLDER, PRODUCT_IMAGE_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
 # ---------------------------------------------------------------------------
-# DATABASE URL — Add your Supabase URL here OR set as environment variable
+# Supabase config
 # ---------------------------------------------------------------------------
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.bpklpcrbzbmiopfcwcfy:MySecurePass12@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://bpklpcrbzbmiopfcwcfy.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_secret_YKRk3EuR-bi6IMx-WH5CLw_KH9W4zj2")
 
-# Detect which database to use
-USE_POSTGRES = bool(DATABASE_URL)
-
+# ---------------------------------------------------------------------------
+# Database setup
+# ---------------------------------------------------------------------------
 import sqlite3
 DATABASE = os.path.join(BASE_DIR, "database.db")
+
+USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
     import psycopg2
     import psycopg2.extras
-    # Test connection immediately on startup — will crash with clear error if wrong
-    print(f"[DB] Connecting to PostgreSQL (Supabase)...")
+    print("[DB] Connecting to PostgreSQL (Supabase)...")
     try:
         _test_conn = psycopg2.connect(DATABASE_URL)
         _test_conn.close()
-        print(f"[DB] PostgreSQL connection successful!")
+        print("[DB] PostgreSQL connection successful!")
     except Exception as e:
         print(f"[DB] PostgreSQL connection FAILED: {e}")
-        print(f"[DB] Falling back to SQLite")
+        print("[DB] Falling back to SQLite")
         USE_POSTGRES = False
 else:
-    print(f"[DB] No DATABASE_URL found, using SQLite")
+    print("[DB] No DATABASE_URL found, using SQLite")
+
+# ---------------------------------------------------------------------------
+# Supabase Storage setup
+# ---------------------------------------------------------------------------
+USE_SUPABASE_STORAGE = False
+supabase_client = None
+
+try:
+    from supabase import create_client
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    USE_SUPABASE_STORAGE = True
+    print("[STORAGE] Supabase Storage connected!")
+except Exception as e:
+    print(f"[STORAGE] Supabase Storage not available: {e}")
+    print("[STORAGE] Using local file storage")
+
+
+# ---------------------------------------------------------------------------
+# File upload helper
+# ---------------------------------------------------------------------------
+def upload_file(file, bucket, filename):
+    """Upload file to Supabase Storage or local folder. Returns URL or filename."""
+    if USE_SUPABASE_STORAGE and supabase_client:
+        try:
+            file_bytes = file.read()
+            path = f"{filename}"
+            supabase_client.storage.from_(bucket).upload(
+                path, file_bytes,
+                file_options={"content-type": file.content_type or "application/octet-stream",
+                              "upsert": "true"}
+            )
+            # Return public URL for products bucket, just filename for private buckets
+            if bucket == "products":
+                url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}"
+                return url
+            else:
+                return filename
+        except Exception as e:
+            print(f"[STORAGE] Upload failed: {e}, falling back to local")
+            file.seek(0)
+
+    # Local fallback
+    if bucket == "products":
+        save_path = os.path.join(PRODUCT_IMAGE_FOLDER, filename)
+    elif bucket == "payments":
+        save_path = os.path.join(PAYMENT_FOLDER, filename)
+    else:
+        save_path = os.path.join(STL_FOLDER, filename)
+    file.save(save_path)
+    return filename
+
+
+def get_product_image_url(image_value):
+    """Return full URL for product image."""
+    if not image_value:
+        return None
+    if image_value.startswith("http"):
+        return image_value
+    return url_for('static', filename=f'images/products/{image_value}')
+
+
+def get_payment_url(filename):
+    """Return URL for payment screenshot."""
+    if not filename:
+        return None
+    if filename.startswith("http"):
+        return filename
+    if USE_SUPABASE_STORAGE and supabase_client:
+        try:
+            result = supabase_client.storage.from_("payments").create_signed_url(filename, 3600)
+            return result.get("signedURL") or result.get("signed_url")
+        except:
+            pass
+    return url_for('uploaded_payment', filename=filename)
+
+
+def get_stl_url(filename):
+    """Return URL for STL file download."""
+    if not filename:
+        return None
+    if filename.startswith("http"):
+        return filename
+    if USE_SUPABASE_STORAGE and supabase_client:
+        try:
+            result = supabase_client.storage.from_("stl-files").create_signed_url(filename, 3600)
+            return result.get("signedURL") or result.get("signed_url")
+        except:
+            pass
+    return url_for('uploaded_stl', filename=filename)
 
 
 # ---------------------------------------------------------------------------
@@ -92,34 +184,7 @@ def get_db():
 def close_db(error):
     db = g.pop("db", None)
     if db is not None:
-        if USE_POSTGRES:
-            db.close()
-        else:
-            db.close()
-
-
-def db_execute(query, params=(), fetchone=False, fetchall=False, commit=False):
-    """Unified query executor for both PostgreSQL and SQLite."""
-    db = get_db()
-
-    # Convert SQLite ? placeholders to PostgreSQL %s
-    if USE_POSTGRES:
-        query = query.replace("?", "%s")
-        # Convert AUTOINCREMENT to SERIAL for table creation (handled in init_db)
-
-    cur = db.cursor()
-    cur.execute(query, params)
-
-    result = None
-    if fetchone:
-        result = cur.fetchone()
-    elif fetchall:
-        result = cur.fetchall()
-
-    if commit:
-        db.commit()
-
-    return result, cur
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +202,6 @@ def init_db():
                 password TEXT NOT NULL
             )
         """)
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
@@ -150,7 +214,6 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
@@ -168,7 +231,6 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS order_items (
                 id SERIAL PRIMARY KEY,
@@ -179,7 +241,6 @@ def init_db():
                 price REAL NOT NULL
             )
         """)
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS custom_print_requests (
                 id SERIAL PRIMARY KEY,
@@ -195,130 +256,74 @@ def init_db():
             )
         """)
 
-        # Seed admin
         cur.execute("SELECT COUNT(*) FROM admin")
         if cur.fetchone()[0] == 0:
-            cur.execute(
-                "INSERT INTO admin (username, password) VALUES (%s, %s)",
-                ("admin", generate_password_hash("admin123")),
-            )
+            cur.execute("INSERT INTO admin (username, password) VALUES (%s, %s)",
+                ("admin", generate_password_hash("admin123")))
 
-        # Seed products
         cur.execute("SELECT COUNT(*) FROM products")
         if cur.fetchone()[0] == 0:
             sample_products = [
-                ("Custom Name Sign", "Beautiful personalized name signs perfect for home decor, nurseries, or gifts.", 15.99, "Name Signs", "name_sign.png", 20),
-                ("Dragon Keychain", "Detailed 3D printed dragon keychain. Lightweight and durable PLA filament.", 4.99, "Keychains", "dragon_keychain.png", 50),
-                ("Mini Eiffel Tower", "Iconic Eiffel Tower decorative model. Perfect desk ornament or gift.", 12.50, "Decorative Models", "eiffel_tower.png", 15),
+                ("Custom Name Sign", "Beautiful personalized name signs perfect for home decor.", 15.99, "Name Signs", "name_sign.png", 20),
+                ("Dragon Keychain", "Detailed 3D printed dragon keychain. Lightweight and durable.", 4.99, "Keychains", "dragon_keychain.png", 50),
+                ("Mini Eiffel Tower", "Iconic Eiffel Tower decorative model. Perfect desk ornament.", 12.50, "Decorative Models", "eiffel_tower.png", 15),
                 ("Phone Stand", "Adjustable phone stand compatible with all smartphone sizes.", 8.99, "Functional Products", "phone_stand.png", 30),
-                ("Flower Pot", "Geometric hexagon flower pot. Modern design for succulents and small plants.", 11.00, "Decorative Models", "flower_pot.png", 25),
+                ("Flower Pot", "Geometric hexagon flower pot. Modern design for succulents.", 11.00, "Decorative Models", "flower_pot.png", 25),
                 ("Initial Keychain", "Personalized initial letter keychain. Choose your letter!", 3.99, "Keychains", "initial_keychain.png", 100),
                 ("Cable Organizer", "Keep your desk tidy with this sleek cable management clip.", 5.50, "Functional Products", "cable_organizer.png", 40),
-                ("Family Name Plaque", "Customized family name wall plaque. Makes a wonderful housewarming gift.", 22.00, "Name Signs", "family_plaque.png", 10),
+                ("Family Name Plaque", "Customized family name wall plaque. Wonderful housewarming gift.", 22.00, "Name Signs", "family_plaque.png", 10),
             ]
             cur.executemany(
                 "INSERT INTO products (name, description, price, category, image, stock) VALUES (%s,%s,%s,%s,%s,%s)",
-                sample_products,
-            )
+                sample_products)
 
         conn.commit()
         conn.close()
 
     else:
-        # SQLite
         db = sqlite3.connect(DATABASE)
         db.row_factory = sqlite3.Row
         cursor = db.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS admin (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                price REAL NOT NULL,
-                category TEXT,
-                image TEXT,
-                stock INTEGER DEFAULT 10,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_code TEXT UNIQUE NOT NULL,
-                customer_name TEXT NOT NULL,
-                phone TEXT NOT NULL,
-                email TEXT,
-                address TEXT NOT NULL,
-                delivery_method TEXT DEFAULT 'Standard Delivery',
-                delivery_charge REAL DEFAULT 0,
-                notes TEXT,
-                total_price REAL NOT NULL,
-                payment_screenshot TEXT,
-                status TEXT DEFAULT 'Pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS order_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
-                product_name TEXT NOT NULL,
-                quantity INTEGER NOT NULL,
-                price REAL NOT NULL
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS custom_print_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                customer_name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                phone TEXT,
-                description TEXT NOT NULL,
-                size TEXT,
-                quantity INTEGER DEFAULT 1,
-                stl_file TEXT,
-                status TEXT DEFAULT 'Pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
+        cursor.execute("""CREATE TABLE IF NOT EXISTS admin (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT,
+            price REAL NOT NULL, category TEXT, image TEXT, stock INTEGER DEFAULT 10,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, order_code TEXT UNIQUE NOT NULL,
+            customer_name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT, address TEXT NOT NULL,
+            delivery_method TEXT DEFAULT 'Standard Delivery', delivery_charge REAL DEFAULT 0,
+            notes TEXT, total_price REAL NOT NULL, payment_screenshot TEXT,
+            status TEXT DEFAULT 'Pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL, product_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL, price REAL NOT NULL)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS custom_print_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT NOT NULL,
+            email TEXT NOT NULL, phone TEXT, description TEXT NOT NULL, size TEXT,
+            quantity INTEGER DEFAULT 1, stl_file TEXT, status TEXT DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         cursor.execute("SELECT COUNT(*) FROM admin")
         if cursor.fetchone()[0] == 0:
-            cursor.execute(
-                "INSERT INTO admin (username, password) VALUES (?, ?)",
-                ("admin", generate_password_hash("admin123")),
-            )
-
+            cursor.execute("INSERT INTO admin (username, password) VALUES (?, ?)",
+                ("admin", generate_password_hash("admin123")))
         cursor.execute("SELECT COUNT(*) FROM products")
         if cursor.fetchone()[0] == 0:
             sample_products = [
-                ("Custom Name Sign", "Beautiful personalized name signs perfect for home decor, nurseries, or gifts.", 15.99, "Name Signs", "name_sign.png", 20),
-                ("Dragon Keychain", "Detailed 3D printed dragon keychain. Lightweight and durable PLA filament.", 4.99, "Keychains", "dragon_keychain.png", 50),
-                ("Mini Eiffel Tower", "Iconic Eiffel Tower decorative model. Perfect desk ornament or gift.", 12.50, "Decorative Models", "eiffel_tower.png", 15),
-                ("Phone Stand", "Adjustable phone stand compatible with all smartphone sizes.", 8.99, "Functional Products", "phone_stand.png", 30),
-                ("Flower Pot", "Geometric hexagon flower pot. Modern design for succulents and small plants.", 11.00, "Decorative Models", "flower_pot.png", 25),
-                ("Initial Keychain", "Personalized initial letter keychain. Choose your letter!", 3.99, "Keychains", "initial_keychain.png", 100),
-                ("Cable Organizer", "Keep your desk tidy with this sleek cable management clip.", 5.50, "Functional Products", "cable_organizer.png", 40),
-                ("Family Name Plaque", "Customized family name wall plaque. Makes a wonderful housewarming gift.", 22.00, "Name Signs", "family_plaque.png", 10),
+                ("Custom Name Sign", "Beautiful personalized name signs.", 15.99, "Name Signs", "name_sign.png", 20),
+                ("Dragon Keychain", "Detailed 3D printed dragon keychain.", 4.99, "Keychains", "dragon_keychain.png", 50),
+                ("Mini Eiffel Tower", "Iconic Eiffel Tower decorative model.", 12.50, "Decorative Models", "eiffel_tower.png", 15),
+                ("Phone Stand", "Adjustable phone stand.", 8.99, "Functional Products", "phone_stand.png", 30),
+                ("Flower Pot", "Geometric hexagon flower pot.", 11.00, "Decorative Models", "flower_pot.png", 25),
+                ("Initial Keychain", "Personalized initial letter keychain.", 3.99, "Keychains", "initial_keychain.png", 100),
+                ("Cable Organizer", "Sleek cable management clip.", 5.50, "Functional Products", "cable_organizer.png", 40),
+                ("Family Name Plaque", "Customized family name wall plaque.", 22.00, "Name Signs", "family_plaque.png", 10),
             ]
             cursor.executemany(
                 "INSERT INTO products (name, description, price, category, image, stock) VALUES (?,?,?,?,?,?)",
-                sample_products,
-            )
-
+                sample_products)
         db.commit()
         db.close()
 
@@ -426,32 +431,27 @@ def products():
     db = get_db()
     category = request.args.get("category", "")
     search = request.args.get("search", "")
-
     if USE_POSTGRES:
         query = "SELECT * FROM products WHERE 1=1"
         params = []
         if category:
-            query += " AND category = %s"
-            params.append(category)
+            query += " AND category = %s"; params.append(category)
         if search:
             query += " AND (name ILIKE %s OR description ILIKE %s)"
             params.extend([f"%{search}%", f"%{search}%"])
         query += " ORDER BY created_at DESC"
-        cur = db.cursor()
-        cur.execute(query, params)
+        cur = db.cursor(); cur.execute(query, params)
         all_products = cur.fetchall()
     else:
         query = "SELECT * FROM products WHERE 1=1"
         params = []
         if category:
-            query += " AND category = ?"
-            params.append(category)
+            query += " AND category = ?"; params.append(category)
         if search:
             query += " AND (name LIKE ? OR description LIKE ?)"
             params.extend([f"%{search}%", f"%{search}%"])
         query += " ORDER BY created_at DESC"
         all_products = db.execute(query, params).fetchall()
-
     categories = ["Name Signs", "Keychains", "Decorative Models", "Functional Products"]
     return render_template("products.html", products=all_products, categories=categories,
                            selected_category=category, search=search)
@@ -465,20 +465,17 @@ def product_detail(product_id):
         cur.execute("SELECT * FROM products WHERE id = %s", (product_id,))
         product = cur.fetchone()
         if not product:
-            flash("Product not found.", "error")
-            return redirect(url_for("products"))
+            flash("Product not found.", "error"); return redirect(url_for("products"))
         cur.execute("SELECT * FROM products WHERE category = %s AND id != %s ORDER BY RANDOM() LIMIT 4",
                     (product["category"], product_id))
         related = cur.fetchall()
     else:
         product = db.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
         if not product:
-            flash("Product not found.", "error")
-            return redirect(url_for("products"))
+            flash("Product not found.", "error"); return redirect(url_for("products"))
         related = db.execute(
             "SELECT * FROM products WHERE category = ? AND id != ? ORDER BY RANDOM() LIMIT 4",
-            (product["category"], product_id)
-        ).fetchall()
+            (product["category"], product_id)).fetchall()
     return render_template("product_detail.html", product=product, related=related)
 
 
@@ -533,9 +530,7 @@ def remove_from_cart(product_id):
 def checkout():
     cart_data = get_cart()
     if not cart_data:
-        flash("Your cart is empty.", "info")
-        return redirect(url_for("products"))
-
+        flash("Your cart is empty.", "info"); return redirect(url_for("products"))
     items = cart_items_detail(cart_data)
     subtotal = cart_total(cart_data)
 
@@ -546,13 +541,7 @@ def checkout():
         address = request.form.get("address", "").strip()
         notes = request.form.get("notes", "").strip()
         delivery_method = request.form.get("delivery_method", "Pickup (Free)")
-
-        delivery_charge = 0
-        for label, charge in DELIVERY_OPTIONS:
-            if label == delivery_method:
-                delivery_charge = charge
-                break
-
+        delivery_charge = next((c for l, c in DELIVERY_OPTIONS if l == delivery_method), 0)
         total = round(subtotal + delivery_charge, 2)
 
         if not all([name, phone, address]):
@@ -565,59 +554,45 @@ def checkout():
             file = request.files["payment_screenshot"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_SCREENSHOTS):
                 filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-                file.save(os.path.join(PAYMENT_FOLDER, filename))
-                screenshot_filename = filename
+                screenshot_filename = upload_file(file, "payments", filename)
 
         db = get_db()
-
-        # Generate unique order code
         for _ in range(10):
             order_code = generate_order_id()
             if USE_POSTGRES:
                 cur = db.cursor()
                 cur.execute("SELECT id FROM orders WHERE order_code=%s", (order_code,))
-                existing = cur.fetchone()
+                if not cur.fetchone(): break
             else:
-                existing = db.execute("SELECT id FROM orders WHERE order_code=?", (order_code,)).fetchone()
-            if not existing:
-                break
+                if not db.execute("SELECT id FROM orders WHERE order_code=?", (order_code,)).fetchone(): break
 
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute("""
-                INSERT INTO orders (order_code, customer_name, phone, email, address,
+            cur.execute("""INSERT INTO orders (order_code, customer_name, phone, email, address,
                 delivery_method, delivery_charge, notes, total_price, payment_screenshot)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
-            """, (order_code, name, phone, email, address,
-                  delivery_method, delivery_charge, notes, total, screenshot_filename))
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                (order_code, name, phone, email, address, delivery_method, delivery_charge, notes, total, screenshot_filename))
             order_id = cur.fetchone()["id"]
             for item in items:
-                cur.execute("""
-                    INSERT INTO order_items (order_id, product_id, product_name, quantity, price)
-                    VALUES (%s,%s,%s,%s,%s)
-                """, (order_id, item["id"], item["name"], item["quantity"], item["price"]))
+                cur.execute("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (%s,%s,%s,%s,%s)",
+                    (order_id, item["id"], item["name"], item["quantity"], item["price"]))
             db.commit()
         else:
-            cursor = db.execute("""
-                INSERT INTO orders (order_code, customer_name, phone, email, address,
+            cursor = db.execute("""INSERT INTO orders (order_code, customer_name, phone, email, address,
                 delivery_method, delivery_charge, notes, total_price, payment_screenshot)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
-            """, (order_code, name, phone, email, address,
-                  delivery_method, delivery_charge, notes, total, screenshot_filename))
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (order_code, name, phone, email, address, delivery_method, delivery_charge, notes, total, screenshot_filename))
             order_id = cursor.lastrowid
             for item in items:
-                db.execute("""
-                    INSERT INTO order_items (order_id, product_id, product_name, quantity, price)
-                    VALUES (?,?,?,?,?)
-                """, (order_id, item["id"], item["name"], item["quantity"], item["price"]))
+                db.execute("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (?,?,?,?,?)",
+                    (order_id, item["id"], item["name"], item["quantity"], item["price"]))
             db.commit()
 
         session.pop("cart", None)
         flash(f"Order {order_code} placed successfully! We'll contact you soon.", "success")
         return redirect(url_for("order_success", order_id=order_id))
 
-    return render_template("checkout.html", items=items, subtotal=subtotal,
-                           delivery_options=DELIVERY_OPTIONS)
+    return render_template("checkout.html", items=items, subtotal=subtotal, delivery_options=DELIVERY_OPTIONS)
 
 
 @app.route("/order-success/<int:order_id>")
@@ -654,24 +629,21 @@ def custom_print():
             file = request.files["stl_file"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_STL):
                 filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-                file.save(os.path.join(STL_FOLDER, filename))
-                stl_filename = filename
+                stl_filename = upload_file(file, "stl-files", filename)
 
         db = get_db()
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute("""
-                INSERT INTO custom_print_requests
+            cur.execute("""INSERT INTO custom_print_requests
                 (customer_name, email, phone, description, size, quantity, stl_file)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (name, email, phone, description, size, quantity, stl_filename))
+                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (name, email, phone, description, size, quantity, stl_filename))
             db.commit()
         else:
-            db.execute("""
-                INSERT INTO custom_print_requests
+            db.execute("""INSERT INTO custom_print_requests
                 (customer_name, email, phone, description, size, quantity, stl_file)
-                VALUES (?,?,?,?,?,?,?)
-            """, (name, email, phone, description, size, quantity, stl_filename))
+                VALUES (?,?,?,?,?,?,?)""",
+                (name, email, phone, description, size, quantity, stl_filename))
             db.commit()
 
         flash("Your custom print request has been submitted! We'll get back to you shortly.", "success")
@@ -688,7 +660,6 @@ def custom_print():
 def admin_login():
     if session.get("admin_logged_in"):
         return redirect(url_for("admin_dashboard"))
-
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
@@ -699,14 +670,12 @@ def admin_login():
             admin = cur.fetchone()
         else:
             admin = db.execute("SELECT * FROM admin WHERE username = ?", (username,)).fetchone()
-
         if admin and check_password_hash(admin["password"], password):
             session["admin_logged_in"] = True
             session["admin_username"] = username
             flash("Welcome back!", "success")
             return redirect(url_for("admin_dashboard"))
         flash("Invalid credentials.", "error")
-
     return render_template("admin_login.html")
 
 
@@ -738,14 +707,10 @@ def admin_dashboard():
         custom_requests = db.execute("SELECT COUNT(*) FROM custom_print_requests WHERE status='Pending'").fetchone()[0]
         revenue = db.execute("SELECT SUM(total_price) FROM orders WHERE status='Completed'").fetchone()[0] or 0
         recent_orders = db.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 5").fetchall()
-
     return render_template("admin_dashboard.html",
-                           total_orders=total_orders,
-                           pending_orders=pending_orders,
-                           total_products=total_products,
-                           custom_requests=custom_requests,
-                           revenue=round(revenue, 2),
-                           recent_orders=recent_orders)
+                           total_orders=total_orders, pending_orders=pending_orders,
+                           total_products=total_products, custom_requests=custom_requests,
+                           revenue=round(revenue, 2), recent_orders=recent_orders)
 
 
 @app.route("/admin/products")
@@ -771,25 +736,22 @@ def admin_add_product():
         category = request.form.get("category", "")
         stock = int(request.form.get("stock", 0))
 
-        image_filename = "default.png"
+        image_value = "default.png"
         if "image" in request.files:
             file = request.files["image"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_IMAGES):
                 filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-                file.save(os.path.join(PRODUCT_IMAGE_FOLDER, filename))
-                image_filename = filename
+                image_value = upload_file(file, "products", filename)
 
         db = get_db()
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute(
-                "INSERT INTO products (name, description, price, category, image, stock) VALUES (%s,%s,%s,%s,%s,%s)",
-                (name, description, price, category, image_filename, stock))
+            cur.execute("INSERT INTO products (name, description, price, category, image, stock) VALUES (%s,%s,%s,%s,%s,%s)",
+                (name, description, price, category, image_value, stock))
             db.commit()
         else:
-            db.execute(
-                "INSERT INTO products (name, description, price, category, image, stock) VALUES (?,?,?,?,?,?)",
-                (name, description, price, category, image_filename, stock))
+            db.execute("INSERT INTO products (name, description, price, category, image, stock) VALUES (?,?,?,?,?,?)",
+                (name, description, price, category, image_value, stock))
             db.commit()
 
         flash("Product added successfully!", "success")
@@ -811,8 +773,7 @@ def admin_edit_product(product_id):
         product = db.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
 
     if not product:
-        flash("Product not found.", "error")
-        return redirect(url_for("admin_products"))
+        flash("Product not found.", "error"); return redirect(url_for("admin_products"))
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -821,24 +782,21 @@ def admin_edit_product(product_id):
         category = request.form.get("category", "")
         stock = int(request.form.get("stock", 0))
 
-        image_filename = product["image"]
+        image_value = product["image"]
         if "image" in request.files:
             file = request.files["image"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_IMAGES):
                 filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-                file.save(os.path.join(PRODUCT_IMAGE_FOLDER, filename))
-                image_filename = filename
+                image_value = upload_file(file, "products", filename)
 
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute(
-                "UPDATE products SET name=%s, description=%s, price=%s, category=%s, image=%s, stock=%s WHERE id=%s",
-                (name, description, price, category, image_filename, stock, product_id))
+            cur.execute("UPDATE products SET name=%s, description=%s, price=%s, category=%s, image=%s, stock=%s WHERE id=%s",
+                (name, description, price, category, image_value, stock, product_id))
             db.commit()
         else:
-            db.execute(
-                "UPDATE products SET name=?, description=?, price=?, category=?, image=?, stock=? WHERE id=?",
-                (name, description, price, category, image_filename, stock, product_id))
+            db.execute("UPDATE products SET name=?, description=?, price=?, category=?, image=?, stock=? WHERE id=?",
+                (name, description, price, category, image_value, stock, product_id))
             db.commit()
 
         flash("Product updated!", "success")
@@ -896,7 +854,9 @@ def admin_order_detail(order_id):
     else:
         order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
         items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
-    return render_template("admin_order_detail.html", order=order, items=items)
+
+    payment_url = get_payment_url(order["payment_screenshot"]) if order and order["payment_screenshot"] else None
+    return render_template("admin_order_detail.html", order=order, items=items, payment_url=payment_url)
 
 
 @app.route("/admin/orders/<int:order_id>/print")
@@ -941,7 +901,18 @@ def admin_custom_requests():
         requests_list = cur.fetchall()
     else:
         requests_list = db.execute("SELECT * FROM custom_print_requests ORDER BY created_at DESC").fetchall()
-    return render_template("admin_custom_requests.html", requests=requests_list)
+
+    # Add STL download URLs
+    requests_with_urls = []
+    for req in requests_list:
+        req_dict = dict(req)
+        if req_dict.get("stl_file"):
+            req_dict["stl_url"] = get_stl_url(req_dict["stl_file"])
+        else:
+            req_dict["stl_url"] = None
+        requests_with_urls.append(req_dict)
+
+    return render_template("admin_custom_requests.html", requests=requests_with_urls)
 
 
 @app.route("/admin/custom-requests/<int:req_id>/status", methods=["POST"])
@@ -960,6 +931,9 @@ def admin_update_request_status(req_id):
     return redirect(url_for("admin_custom_requests"))
 
 
+# ---------------------------------------------------------------------------
+# Serve local uploaded files (fallback when not using Supabase Storage)
+# ---------------------------------------------------------------------------
 @app.route("/uploads/payment/<filename>")
 @admin_required
 def uploaded_payment(filename):
