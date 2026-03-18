@@ -37,20 +37,29 @@ for folder in [STL_FOLDER, PAYMENT_FOLDER, PRODUCT_IMAGE_FOLDER]:
 # ---------------------------------------------------------------------------
 # DATABASE URL — Add your Supabase URL here OR set as environment variable
 # ---------------------------------------------------------------------------
-# OPTION A: Paste your full Supabase URL directly below (for testing locally)
-# OPTION B: Set DATABASE_URL in Render environment variables (recommended)
-# Leave as empty string "" to use local SQLite instead
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # Detect which database to use
 USE_POSTGRES = bool(DATABASE_URL)
 
+import sqlite3
+DATABASE = os.path.join(BASE_DIR, "database.db")
+
 if USE_POSTGRES:
     import psycopg2
     import psycopg2.extras
+    # Test connection immediately on startup — will crash with clear error if wrong
+    print(f"[DB] Connecting to PostgreSQL (Supabase)...")
+    try:
+        _test_conn = psycopg2.connect(DATABASE_URL)
+        _test_conn.close()
+        print(f"[DB] PostgreSQL connection successful!")
+    except Exception as e:
+        print(f"[DB] PostgreSQL connection FAILED: {e}")
+        print(f"[DB] Falling back to SQLite")
+        USE_POSTGRES = False
 else:
-    import sqlite3
-    DATABASE = os.path.join(BASE_DIR, "database.db")
+    print(f"[DB] No DATABASE_URL found, using SQLite")
 
 
 # ---------------------------------------------------------------------------
