@@ -110,11 +110,11 @@
 
     <div class="admin-table-wrap" style="padding:24px 28px;">
       <h3 style="margin-bottom:16px;">Payment Screenshot</h3>
-      {% if order['payment_screenshot'] %}
-        <img src="{{ url_for('uploaded_payment', filename=order['payment_screenshot']) }}"
+      {% if payment_url %}
+        <img src="{{ payment_url }}"
              alt="Payment Screenshot"
              style="width:100%;border-radius:var(--radius-sm);border:1px solid var(--border);">
-        <a href="{{ url_for('uploaded_payment', filename=order['payment_screenshot']) }}"
+        <a href="{{ payment_url }}"
            target="_blank" class="btn btn-secondary btn-full" style="margin-top:12px;">🔍 View Full Size</a>
       {% else %}
         <div style="text-align:center;padding:32px;color:var(--text-muted);">
