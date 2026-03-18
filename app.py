@@ -37,7 +37,7 @@ for folder in [STL_FOLDER, PAYMENT_FOLDER, PRODUCT_IMAGE_FOLDER]:
 # ---------------------------------------------------------------------------
 # DATABASE URL — Add your Supabase URL here OR set as environment variable
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.bpklpcrbzbmiopfcwcfy:MySecurePass12@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.bpklpcrbzbmiopfcwcfy:MySecurePass12@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres")
 
 # Detect which database to use
 USE_POSTGRES = bool(DATABASE_URL)
