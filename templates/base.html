@@ -13,17 +13,21 @@
 <!-- ── Navbar ── -->
 <nav class="navbar">
   <div class="container navbar-inner">
+
+    <!-- Brand -->
     <a href="{{ url_for('index') }}" class="navbar-brand">
       <div class="navbar-brand-icon">🖨️</div>
-      D<span style="color:var(--accent)">Design</span>
+      PrintCraft<span style="color:var(--accent)">3D</span>
     </a>
 
+    <!-- Desktop nav links -->
     <ul class="navbar-nav">
       <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
       <li><a href="{{ url_for('products') }}" class="nav-link">Products</a></li>
       <li><a href="{{ url_for('custom_print') }}" class="nav-link">Custom Print</a></li>
     </ul>
 
+    <!-- Desktop cart -->
     <div class="navbar-actions">
       <a href="{{ url_for('cart') }}" class="cart-btn">
         🛒 Cart
@@ -33,11 +37,24 @@
       </a>
     </div>
 
-    <button class="hamburger" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
+    <!-- Mobile hamburger only -->
+    <div class="mobile-nav-right">
+      <button class="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
   </div>
 </nav>
+
+<!-- ── Mobile Bottom Cart Bar (outside navbar) ── -->
+<a href="{{ url_for('cart') }}" class="mobile-bottom-cart">
+  <span>🛒</span>
+  <span>View Cart</span>
+  {% if cart_count > 0 %}
+    <span class="mobile-bottom-cart-badge">{{ cart_count }}</span>
+  {% endif %}
+</a>
 
 <!-- ── Flash Messages ── -->
 <div class="flash-container">
@@ -61,7 +78,7 @@
   <div class="container">
     <div class="footer-grid">
       <div>
-        <div class="footer-brand-name">🖨️ D Design</div>
+        <div class="footer-brand-name">🖨️ PrintCraft3D</div>
         <p class="footer-desc">Turn your ideas into reality with premium custom 3D printing. Quality, precision, and creativity in every print.</p>
       </div>
       <div>
@@ -84,7 +101,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© 2025 D Design. All rights reserved.</span>
+      <span>© 2025 PrintCraft3D. All rights reserved.</span>
       <span>Made with ❤️ for 3D printing enthusiasts</span>
     </div>
   </div>
