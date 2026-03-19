@@ -61,8 +61,16 @@
           {{ order['created_at'].strftime('%Y-%m-%d') if order['created_at'] else 'N/A' }}
         </td>
         <td>
-          <a href="{{ url_for('admin_order_detail', order_id=order['id']) }}"
-             class="btn btn-secondary btn-sm">View</a>
+          <div style="display:flex;gap:6px;">
+            <a href="{{ url_for('admin_order_detail', order_id=order['id']) }}"
+               class="btn btn-secondary btn-sm">View</a>
+            <form action="{{ url_for('admin_delete_order', order_id=order['id']) }}" method="POST">
+              <button type="submit" class="btn btn-danger btn-sm"
+                      data-confirm="Delete order {{ order['order_code'] }}? Cannot be undone.">
+                🗑️
+              </button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}
