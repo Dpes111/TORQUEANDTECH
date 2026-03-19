@@ -849,13 +849,19 @@ def admin_order_detail(order_id):
         cur = db.cursor()
         cur.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order = cur.fetchone()
+        if not order:
+            flash("Order not found.", "error")
+            return redirect(url_for("admin_orders"))
         cur.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         items = cur.fetchall()
     else:
         order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order:
+            flash("Order not found.", "error")
+            return redirect(url_for("admin_orders"))
         items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
 
-    payment_url = get_payment_url(order["payment_screenshot"]) if order and order["payment_screenshot"] else None
+    payment_url = get_payment_url(order["payment_screenshot"]) if order["payment_screenshot"] else None
     return render_template("admin_order_detail.html", order=order, items=items, payment_url=payment_url)
 
 
@@ -867,12 +873,88 @@ def admin_print_receipt(order_id):
         cur = db.cursor()
         cur.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order = cur.fetchone()
+        if not order:
+            flash("Order not found.", "error")
+            return redirect(url_for("admin_orders"))
         cur.execute("SELECT * FROM order_items WHERE order_id = %s", (order_id,))
         items = cur.fetchall()
     else:
         order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order:
+            flash("Order not found.", "error")
+            return redirect(url_for("admin_orders"))
         items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
     return render_template("receipt_print.html", order=order, items=items)
+
+
+@app.route("/admin/orders/<int:order_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_order(order_id):
+    confirm_password = request.form.get("confirm_password", "")
+
+    # Verify admin password before deleting
+    db = get_db()
+    if USE_POSTGRES:
+        cur = db.cursor()
+        cur.execute("SELECT password FROM admin WHERE username = %s", (session.get("admin_username"),))
+        admin = cur.fetchone()
+    else:
+        admin = db.execute("SELECT password FROM admin WHERE username = ?", (session.get("admin_username"),)).fetchone()
+
+    if not admin or not check_password_hash(admin["password"], confirm_password):
+        flash("Wrong password. Order was NOT deleted.", "error")
+        return redirect(url_for("admin_order_detail", order_id=order_id))
+
+    # Get order details before deleting (to remove storage files)
+    if USE_POSTGRES:
+        cur = db.cursor()
+        cur.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
+        order = cur.fetchone()
+    else:
+        order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+
+    if not order:
+        flash("Order not found.", "error")
+        return redirect(url_for("admin_orders"))
+
+    # Delete payment screenshot from Supabase Storage
+    if USE_SUPABASE_STORAGE and supabase_client and order["payment_screenshot"]:
+        try:
+            filename = order["payment_screenshot"]
+            if not filename.startswith("http"):
+                supabase_client.storage.from_("payments").remove([filename])
+                print(f"[STORAGE] Deleted payment screenshot: {filename}")
+        except Exception as e:
+            print(f"[STORAGE] Could not delete payment screenshot: {e}")
+
+    # Delete STL file from Supabase Storage (via custom_print_requests)
+    if USE_SUPABASE_STORAGE and supabase_client:
+        try:
+            if USE_POSTGRES:
+                cur = db.cursor()
+                cur.execute("SELECT stl_file FROM custom_print_requests WHERE email = %s", (order["email"],))
+                stl_rows = cur.fetchall()
+            else:
+                stl_rows = db.execute("SELECT stl_file FROM custom_print_requests WHERE email = ?", (order["email"],)).fetchall()
+            for row in stl_rows:
+                if row["stl_file"] and not row["stl_file"].startswith("http"):
+                    supabase_client.storage.from_("stl-files").remove([row["stl_file"]])
+        except Exception as e:
+            print(f"[STORAGE] Could not delete STL file: {e}")
+
+    # Delete order items and order from database
+    if USE_POSTGRES:
+        cur = db.cursor()
+        cur.execute("DELETE FROM order_items WHERE order_id = %s", (order_id,))
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+        db.commit()
+    else:
+        db.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+        db.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        db.commit()
+
+    flash(f"Order {order['order_code']} and all associated files deleted permanently.", "info")
+    return redirect(url_for("admin_orders"))
 
 
 @app.route("/admin/orders/<int:order_id>/status", methods=["POST"])
