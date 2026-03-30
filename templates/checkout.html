@@ -94,7 +94,9 @@
             <span class="step-num">3</span> Payment via QR Code
           </div>
           <div class="qr-box">
-            <div class="qr-placeholder"><span>📱</span></div>
+            <img src="{{ url_for('static', filename='images/qr.png') }}"
+     alt="Payment QR Code"
+     style="width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;">
             <div class="qr-instruction">
               <strong>Scan to Pay</strong><br>
               Use eSewa, Khalti, or your bank's app to scan this QR code.<br>
