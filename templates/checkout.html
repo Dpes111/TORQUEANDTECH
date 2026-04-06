@@ -1,6 +1,141 @@
 {% extends "base.html" %}
 {% block title %}Checkout - PrintCraft 3D{% endblock %}
 
+{% block head %}
+<style>
+/* ── Checkout Step Guide ── */
+.checkout-steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  margin: 28px 0 32px;
+  padding: 0 8px;
+}
+.checkout-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 120px;
+  position: relative;
+}
+.checkout-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+.checkout-step.done::after { background: var(--success); }
+.step-circle {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px;
+  position: relative; z-index: 1;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+.checkout-step.active .step-circle {
+  background: var(--accent); border-color: var(--accent); color: white;
+  box-shadow: 0 0 0 4px rgba(249,115,22,0.15);
+}
+.checkout-step.done .step-circle {
+  background: var(--success); border-color: var(--success); color: white;
+}
+.step-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.checkout-step.active .step-label { color: var(--accent); }
+.checkout-step.done .step-label { color: var(--success); }
+
+/* ── How-to guide ── */
+.checkout-guide {
+  background: linear-gradient(135deg, #fff8f2, #fffaf6);
+  border: 1.5px solid #fcd9a8;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.checkout-guide-title {
+  font-weight: 700; font-size: 15px; color: var(--accent);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.guide-step {
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 13.5px; color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.guide-step:last-child { margin-bottom: 0; }
+.guide-step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: white;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 1px;
+}
+
+/* ── File upload required styling ── */
+.file-upload-zone {
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: #fff8f2;
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.file-upload-zone:hover { background: #fff3e6; }
+.file-upload-zone.uploaded { border-color: var(--success); background: #f0fdf4; }
+
+/* ── Bottom confirmation card ── */
+.checkout-confirm-card {
+  background: linear-gradient(135deg, #fff8f2, #fff3e8);
+  border: 2px solid #fcd9a8;
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-top: 0;
+}
+
+/* ── Mobile fixed Place Order bar ── */
+.mobile-place-order-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: white;
+  border-top: 2px solid var(--border);
+  padding: 12px 16px;
+  z-index: 300;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+  align-items: center;
+  gap: 14px;
+}
+.mobile-place-total {
+  font-size: 18px; font-weight: 800; color: var(--accent);
+  white-space: nowrap; line-height: 1.2;
+}
+.mobile-place-total small {
+  display: block; font-size: 11px; font-weight: 400; color: var(--text-muted);
+}
+@media (max-width: 768px) {
+  .mobile-place-order-bar { display: flex; }
+  .checkout-container { padding-bottom: 90px !important; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header">
@@ -16,18 +151,69 @@
   </div>
 </div>
 
-<div class="container" style="padding-bottom:80px;">
-  <form action="{{ url_for('checkout') }}" method="POST" enctype="multipart/form-data">
+<!-- Step indicator -->
+<div class="container">
+  <div class="checkout-steps">
+    <div class="checkout-step done">
+      <div class="step-circle">✓</div>
+      <div class="step-label">Cart</div>
+    </div>
+    <div class="checkout-step active" id="si-info">
+      <div class="step-circle">2</div>
+      <div class="step-label">Your Info</div>
+    </div>
+    <div class="checkout-step" id="si-delivery">
+      <div class="step-circle">3</div>
+      <div class="step-label">Delivery</div>
+    </div>
+    <div class="checkout-step" id="si-payment">
+      <div class="step-circle">4</div>
+      <div class="step-label">Payment</div>
+    </div>
+    <div class="checkout-step" id="si-confirm">
+      <div class="step-circle">5</div>
+      <div class="step-label">Place Order</div>
+    </div>
+  </div>
+
+  <!-- How to order guide -->
+  <div class="checkout-guide">
+    <div class="checkout-guide-title">📋 How to Complete Your Order</div>
+    <div class="guide-step">
+      <div class="guide-step-num">1</div>
+      <span><strong>Fill your details</strong> — full name, phone number and delivery address are required.</span>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">2</div>
+      <span><strong>Choose delivery method</strong> — pickup is free, or pick a delivery option for your area.</span>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">3</div>
+      <span><strong>Scan the QR and pay</strong> — use eSewa, Khalti, or your bank app. Pay the exact total shown next to the QR.</span>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">4</div>
+      <span><strong>Take a screenshot of your payment</strong> and upload it in the Payment section below. <em>This is mandatory.</em></span>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">5</div>
+      <span><strong>Tap "Place Order"</strong> at the bottom. You'll get a confirmation page with your order code. We'll contact you shortly!</span>
+    </div>
+  </div>
+</div>
+
+<div class="container checkout-container" style="padding-bottom:80px;">
+  <form action="{{ url_for('checkout') }}" method="POST" enctype="multipart/form-data" id="checkout-form" novalidate>
 
     <div class="checkout-layout">
 
-      <!-- Left -->
+      <!-- Left column -->
       <div>
 
-        <!-- Step 1: Customer -->
-        <div class="checkout-card">
+        <!-- Step 1: Customer info -->
+        <div class="checkout-card" id="section-info">
           <div class="checkout-card-title">
-            <span class="step-num">1</span> Customer Information
+            <span class="step-num">1</span> Your Information
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -40,7 +226,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Email Address <span class="required">optional</span></label>
+            <label class="form-label">Email Address <span style="color:var(--text-muted);font-weight:400;font-size:12px;">(optional)</span></label>
             <input type="email" name="email" class="form-control" placeholder="you@example.com">
           </div>
           <div class="form-group">
@@ -48,13 +234,13 @@
             <textarea name="address" class="form-control" placeholder="Street, City, Province, Postal Code" required></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">Order Notes (Optional)</label>
+            <label class="form-label">Order Notes <span style="color:var(--text-muted);font-weight:400;font-size:12px;">(optional)</span></label>
             <textarea name="notes" class="form-control" placeholder="Color preference, special instructions, etc." style="min-height:70px;"></textarea>
           </div>
         </div>
 
         <!-- Step 2: Delivery -->
-        <div class="checkout-card">
+        <div class="checkout-card" id="section-delivery">
           <div class="checkout-card-title">
             <span class="step-num">2</span> Delivery Method
           </div>
@@ -71,9 +257,9 @@
                 <div>
                   <div style="font-weight:600;font-size:14px;">{{ label.split('(')[0].strip() }}</div>
                   <div style="font-size:12px;color:var(--text-muted);">
-                    {% if 'Inside Valley' in label %}pokhara
+                    {% if 'Inside Valley' in label %}Pokhara area
                     {% elif 'Outside Valley' in label %}All other districts
-                    {% elif 'Same Day' in label %}Order before 10 AM – pokhara only
+                    {% elif 'Same Day' in label %}Order before 10 AM – Pokhara only
                     {% elif 'Express' in label %}Priority + fast courier nationwide
                     {% elif 'Pickup' in label %}Collect from our workshop
                     {% endif %}
@@ -89,18 +275,23 @@
         </div>
 
         <!-- Step 3: Payment -->
-        <div class="checkout-card">
+        <div class="checkout-card" id="section-payment">
           <div class="checkout-card-title">
             <span class="step-num">3</span> Payment via QR Code
           </div>
+
+          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;">
+            💡 <strong>How to pay:</strong> Scan the QR code below using eSewa, Khalti, or your bank app. Pay the exact total. Then take a screenshot and upload it below — this is required to confirm your order.
+          </div>
+
           <div class="qr-box">
             <img src="{{ url_for('static', filename='images/qr.png') }}"
-     alt="Payment QR Code"
-     style="width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;">
+                 alt="Payment QR Code"
+                 style="width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;">
             <div class="qr-instruction">
               <strong>Scan to Pay</strong><br>
-              Use eSewa, Khalti, or your bank's app to scan this QR code.<br>
-              Amount to pay: <strong style="color:var(--accent);" id="qr-amount">Rs. {{ "%.2f"|format(subtotal) }}</strong>
+              Use eSewa, Khalti, or your bank's app.<br>
+              Total to pay: <strong style="color:var(--accent);font-size:18px;" id="qr-amount">Rs. {{ "%.2f"|format(subtotal) }}</strong>
             </div>
             <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
               {% for m in ['eSewa','Khalti','Bank QR'] %}
@@ -108,23 +299,73 @@
               {% endfor %}
             </div>
           </div>
+
           <div style="background:var(--warning-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--warning);">
-            ⚠️ Complete payment first, then upload your screenshot. Order is processed after admin verifies payment.
+            ⚠️ Pay first, then upload your screenshot. Your order will only be processed after admin verifies the payment.
           </div>
+
+          <!-- Screenshot upload - REQUIRED -->
           <div class="form-group">
-            <label class="form-label">Upload Payment Screenshot <span class="required">*</span></label>
-            <div class="file-upload">
-              <input type="file" name="payment_screenshot" accept="image/*" required>
-              <div class="file-upload-icon">📸</div>
-              <div class="file-upload-text">Click or drag to upload screenshot</div>
-              <div class="file-upload-hint">PNG, JPG, JPEG or GIF</div>
+            <label class="form-label" style="font-size:15px;">
+              📸 Upload Payment Screenshot
+              <span class="required" style="font-size:13px;">— Required</span>
+            </label>
+
+            <div class="file-upload-zone" id="upload-zone">
+              <input type="file" name="payment_screenshot" id="screenshot-input" accept="image/*" style="display:none;">
+              <div id="upload-idle">
+                <div style="font-size:2.5rem;margin-bottom:8px;">📷</div>
+                <div style="font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;">Tap to upload your screenshot</div>
+                <div style="font-size:12px;color:var(--text-muted);">PNG, JPG, GIF — Required before placing order</div>
+              </div>
+              <div id="upload-done" style="display:none;">
+                <img id="preview-img" style="max-width:220px;max-height:160px;border-radius:8px;border:2px solid var(--success);margin-bottom:8px;">
+                <div id="file-name-label" style="font-size:13px;color:var(--success);font-weight:600;"></div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Tap to change</div>
+              </div>
+            </div>
+
+            <!-- Error shown if they try to submit without uploading -->
+            <div id="screenshot-error" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;
+                 border-radius:var(--radius-sm);padding:12px 16px;margin-top:10px;
+                 color:#dc2626;font-weight:600;font-size:14px;">
+              ❌ Payment screenshot is required. Please upload a screenshot of your payment before placing the order.
             </div>
           </div>
         </div>
 
-      </div>
+        <!-- Step 4: Confirm & Place Order (at bottom of form) -->
+        <div class="checkout-confirm-card" id="section-confirm">
+          <div style="font-size:14px;color:var(--text-secondary);line-height:1.7;margin-bottom:20px;">
+            ✅ <strong>You're almost done!</strong> Make sure you have:
+            <ul style="margin:10px 0 0 20px;font-size:13.5px;color:var(--text-secondary);">
+              <li>Filled your name, phone and address</li>
+              <li>Chosen a delivery method</li>
+              <li>Paid via QR and uploaded the screenshot</li>
+            </ul>
+          </div>
 
-      <!-- Right: Summary -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:16px;background:white;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:16px;">
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);">Order Total</div>
+              <div style="font-size:26px;font-weight:900;color:var(--accent);" id="bottom-total">Rs. {{ "%.2f"|format(subtotal) }}</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" id="place-btn-bottom" style="min-width:190px;font-size:17px;">
+              ✅ Place Order
+            </button>
+          </div>
+
+          <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:10px;">
+            By placing this order you agree to our terms. We'll call or message you on the phone number provided to confirm.
+          </p>
+          <a href="{{ url_for('cart') }}" style="display:block;text-align:center;font-size:13px;color:var(--text-muted);">
+            ← Back to Cart
+          </a>
+        </div>
+
+      </div><!-- /left -->
+
+      <!-- Right: sticky summary (desktop only) -->
       <div>
         <div class="cart-summary" style="position:sticky;top:88px;">
           <h3 style="margin-bottom:20px;">Order Summary</h3>
@@ -148,7 +389,7 @@
             <span>Total</span>
             <span style="color:var(--accent);" id="total-display">Rs. {{ "%.2f"|format(subtotal) }}</span>
           </div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:20px;" id="place-btn-top">
             ✅ Place Order
           </button>
           <p style="font-size:12px;text-align:center;margin-top:12px;color:var(--text-muted);">
@@ -160,8 +401,19 @@
         </div>
       </div>
 
-    </div>
+    </div><!-- /checkout-layout -->
   </form>
+</div>
+
+<!-- Mobile: fixed bottom Place Order bar -->
+<div class="mobile-place-order-bar" id="mobile-bar">
+  <div class="mobile-place-total">
+    <small>Total to pay</small>
+    <span id="mobile-total">Rs. {{ "%.2f"|format(subtotal) }}</span>
+  </div>
+  <button type="button" class="btn btn-primary btn-lg" onclick="mobileSubmit()" style="flex:1;max-width:200px;">
+    ✅ Place Order
+  </button>
 </div>
 
 {% endblock %}
@@ -171,25 +423,119 @@
 const DELIVERY = { {% for label, charge in delivery_options %}"{{ label }}": {{ charge }},{% endfor %} };
 const SUBTOTAL = {{ subtotal }};
 
+// Update totals when delivery changes
 function updateDelivery(radio) {
   const charge = DELIVERY[radio.value] || 0;
   const total = SUBTOTAL + charge;
+  const totalStr = 'Rs. ' + total.toFixed(2);
+
   document.getElementById('delivery-display').textContent = charge === 0 ? 'Free' : 'Rs. ' + charge;
   document.getElementById('delivery-display').style.color = charge === 0 ? 'var(--success)' : 'var(--text-primary)';
-  document.getElementById('total-display').textContent = 'Rs. ' + total.toFixed(2);
-  document.getElementById('qr-amount').textContent = 'Rs. ' + total.toFixed(2);
-  // Highlight selection
+  document.getElementById('total-display').textContent = totalStr;
+  document.getElementById('qr-amount').textContent = totalStr;
+  document.getElementById('bottom-total').textContent = totalStr;
+  document.getElementById('mobile-total').textContent = totalStr;
+
   document.querySelectorAll('.delivery-option-label').forEach(l => {
-    l.style.borderColor = 'var(--border)'; l.style.background = 'white';
+    l.style.borderColor = 'var(--border)';
+    l.style.background = 'white';
   });
   radio.closest('.delivery-option-label').style.borderColor = 'var(--accent)';
   radio.closest('.delivery-option-label').style.background = 'var(--accent-light)';
 }
 
-// Init on load
+// Screenshot upload UX
+const zone = document.getElementById('upload-zone');
+const input = document.getElementById('screenshot-input');
+
+zone.addEventListener('click', () => input.click());
+
+zone.addEventListener('dragover', e => {
+  e.preventDefault();
+  zone.style.borderColor = 'var(--accent)';
+  zone.style.background = '#fff3e6';
+});
+zone.addEventListener('dragleave', () => {
+  zone.style.borderColor = 'var(--accent)';
+  zone.style.background = '#fff8f2';
+});
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  if (e.dataTransfer.files.length) {
+    setFileInput(e.dataTransfer.files[0]);
+  }
+});
+
+input.addEventListener('change', () => {
+  if (input.files.length) setFileInput(input.files[0]);
+});
+
+function setFileInput(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('file-name-label').textContent = '✅ ' + file.name;
+    document.getElementById('upload-idle').style.display = 'none';
+    document.getElementById('upload-done').style.display = 'block';
+    zone.classList.add('uploaded');
+    document.getElementById('screenshot-error').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Form validation — screenshot is mandatory
+document.getElementById('checkout-form').addEventListener('submit', function(e) {
+  const inp = document.getElementById('screenshot-input');
+  if (!inp.files || inp.files.length === 0) {
+    e.preventDefault();
+    const errEl = document.getElementById('screenshot-error');
+    errEl.style.display = 'block';
+    document.getElementById('section-payment').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return false;
+  }
+  // Disable buttons to prevent double-submit
+  ['place-btn-top', 'place-btn-bottom'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = true; b.innerHTML = '⏳ Placing Order...'; }
+  });
+  const mob = document.querySelector('.mobile-place-order-bar button');
+  if (mob) { mob.disabled = true; mob.innerHTML = '⏳ Please wait...'; }
+});
+
+function mobileSubmit() {
+  document.getElementById('checkout-form').requestSubmit();
+}
+
+// Init delivery highlight
 document.addEventListener('DOMContentLoaded', () => {
   const checked = document.querySelector('input[name="delivery_method"]:checked');
   if (checked) updateDelivery(checked);
 });
+
+// Scroll-based step indicator update
+const stepSections = [
+  { el: 'section-info',     ind: 'si-info' },
+  { el: 'section-delivery', ind: 'si-delivery' },
+  { el: 'section-payment',  ind: 'si-payment' },
+  { el: 'section-confirm',  ind: 'si-confirm' },
+];
+
+function updateSteps() {
+  let lastVisible = -1;
+  stepSections.forEach(({ el }, i) => {
+    const sec = document.getElementById(el);
+    if (sec && sec.getBoundingClientRect().top < window.innerHeight * 0.65) lastVisible = i;
+  });
+  stepSections.forEach(({ ind }, i) => {
+    const el = document.getElementById(ind);
+    if (!el) return;
+    el.classList.remove('active', 'done');
+    if (i < lastVisible) el.classList.add('done');
+    else if (i === lastVisible) el.classList.add('active');
+  });
+}
+
+window.addEventListener('scroll', updateSteps, { passive: true });
+updateSteps();
 </script>
 {% endblock %}
