@@ -549,12 +549,23 @@ def checkout():
             return render_template("checkout.html", items=items, subtotal=subtotal,
                                    delivery_options=DELIVERY_OPTIONS)
 
+        # Payment screenshot is REQUIRED
         screenshot_filename = None
-        if "payment_screenshot" in request.files:
-            file = request.files["payment_screenshot"]
-            if file and file.filename and allowed_file(file.filename, ALLOWED_SCREENSHOTS):
-                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
-                screenshot_filename = upload_file(file, "payments", filename)
+        screenshot_file = request.files.get("payment_screenshot")
+        if not screenshot_file or not screenshot_file.filename:
+            flash("Payment screenshot is required. Please upload a screenshot of your payment.", "error")
+            return render_template("checkout.html", items=items, subtotal=subtotal,
+                                   delivery_options=DELIVERY_OPTIONS)
+        if not allowed_file(screenshot_file.filename, ALLOWED_SCREENSHOTS):
+            flash("Invalid file type for payment screenshot. Please upload a PNG, JPG, or GIF image.", "error")
+            return render_template("checkout.html", items=items, subtotal=subtotal,
+                                   delivery_options=DELIVERY_OPTIONS)
+        filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{screenshot_file.filename}")
+        screenshot_filename = upload_file(screenshot_file, "payments", filename)
+        if not screenshot_filename:
+            flash("Failed to upload payment screenshot. Please try again.", "error")
+            return render_template("checkout.html", items=items, subtotal=subtotal,
+                                   delivery_options=DELIVERY_OPTIONS)
 
         db = get_db()
         for _ in range(10):
