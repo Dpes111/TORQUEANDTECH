@@ -49,13 +49,19 @@
 </nav>
 
 <!-- ── Mobile Bottom Cart Bar (outside navbar) ── -->
-<a href="{{ url_for('cart') }}" class="mobile-bottom-cart">
-  <span>🛒</span>
-  <span>View Cart</span>
-  {% if cart_count > 0 %}
-    <span class="mobile-bottom-cart-badge">{{ cart_count }}</span>
-  {% endif %}
-</a>
+<div class="mobile-bottom-bar">
+  <a href="{{ url_for('track_order') }}" class="mobile-bottom-btn">
+    <span>📦</span>
+    <span>Track Order</span>
+  </a>
+  <a href="{{ url_for('cart') }}" class="mobile-bottom-btn mobile-bottom-cart">
+    <span>🛒</span>
+    <span>Cart</span>
+    {% if cart_count > 0 %}
+      <span class="mobile-bottom-cart-badge">{{ cart_count }}</span>
+    {% endif %}
+  </a>
+</div>
 
 <!-- ── Flash Messages ── -->
 <div class="flash-container">
