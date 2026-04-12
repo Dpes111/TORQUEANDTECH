@@ -1501,96 +1501,14 @@ tbody tr:hover td { background: var(--bg); }
 /* ── Mobile Nav Right (cart + hamburger always visible) ── */
 
 
-@media (max-width: 768px) {
-  /* Hide desktop cart, show mobile right group */
-  .navbar-actions { display: none !important; }
-  .hamburger { display: none !important; }
-}
-
-@media (min-width: 769px) {
-  /* Hide mobile right group on desktop */
-}
-
-/* ── Mobile Nav Right (cart + hamburger always visible) ── */
-
+/* ── Mobile nav: hamburger visible, desktop links/cart hidden ── */
+.mobile-nav-right { display: none; align-items: center; gap: 8px; }
 
 @media (max-width: 768px) {
-  /* Show mobile right controls */
-
-  /* Hide desktop cart on mobile */
-  .navbar-actions { display: none !important; }
-
-  /* Keep hamburger inside mobile-nav-right only */
-  .hamburger { display: none; }
-}
-
-/* ── Mobile Cart Always Visible ── */
-
-
-@media (max-width: 768px) {
-  /* Show mobile right section */
-
-  /* Hide desktop cart button on mobile */
-  .navbar-actions { display: none !important; }
-  .navbar-actions.open { display: none !important; }
-}
-
-/* ═══════════════════════════════════════════════
-   MOBILE CART BUTTON — always visible in header
-   ═══════════════════════════════════════════════ */
-
-/* Hidden on desktop */
-.mobile-nav-right {
-  display: none;
-  align-items: center;
-  gap: 8px;
-}
-
-/* The cart icon button */
-.mobile-cart-btn {
-  position: relative;
-  width: 46px;
-  height: 46px;
-  background: var(--accent);
-  color: white;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  text-decoration: none;
-  flex-shrink: 0;
-  transition: background var(--transition);
-}
-.mobile-cart-btn:hover { background: var(--accent-hover); }
-
-/* Badge on mobile cart */
-.mobile-cart-btn .cart-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: #1a0a00;
-  color: white;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: 2px solid white;
-}
-
-/* Show on mobile, hide desktop cart */
-@media (max-width: 768px) {
-  .mobile-nav-right {
-    display: flex !important;
-  }
-  .navbar-actions {
-    display: none !important;
-  }
+  .mobile-nav-right   { display: flex !important; }
+  .navbar-nav         { display: none; }
+  .navbar-actions     { display: none !important; }
+  .hamburger          { display: flex !important; }
 }
 
 /* ── Mobile Bottom Bar ── */
