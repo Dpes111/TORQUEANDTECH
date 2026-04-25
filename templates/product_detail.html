@@ -1,6 +1,140 @@
 {% extends "base.html" %}
 {% block title %}{{ product['name'] }} - PrintCraft 3D{% endblock %}
 
+{% block head %}
+<style>
+/* ── Gallery ── */
+.product-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gallery-main {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.5s ease;
+  position: absolute;
+  top: 0; left: 0;
+}
+.gallery-main img.hidden { opacity: 0; pointer-events: none; }
+.gallery-main img.visible { opacity: 1; }
+
+/* ── Lamp glow overlay ── */
+.lamp-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255,200,60,0.35) 0%, rgba(255,140,0,0.15) 45%, transparent 75%);
+  mix-blend-mode: screen;
+  z-index: 2;
+}
+.lamp-on .lamp-glow { opacity: 1; }
+.lamp-on .gallery-main {
+  box-shadow: 0 0 40px 8px rgba(255,180,30,0.3), 0 0 80px 20px rgba(255,140,0,0.15);
+  transition: box-shadow 0.6s ease;
+}
+
+/* ── Toggle switch ── */
+.lamp-toggle-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  margin-top: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+  user-select: none;
+}
+.lamp-toggle-wrap:hover { border-color: #f9a825; background: #fffde7; }
+.lamp-on .lamp-toggle-wrap { border-color: #f9a825; background: #fff8e1; }
+
+.lamp-switch {
+  width: 52px; height: 28px;
+  background: var(--border);
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.lamp-switch::after {
+  content: '';
+  position: absolute;
+  width: 22px; height: 22px;
+  background: white;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.lamp-on .lamp-switch { background: #f9a825; }
+.lamp-on .lamp-switch::after { transform: translateX(24px); box-shadow: 0 1px 6px rgba(249,168,37,0.5); }
+
+.lamp-toggle-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: color 0.3s;
+  min-width: 36px;
+}
+.lamp-on .lamp-toggle-label { color: #f57f17; }
+.lamp-icon { font-size: 20px; transition: filter 0.4s; }
+.lamp-on .lamp-icon { filter: drop-shadow(0 0 6px rgba(255,200,0,0.8)); }
+
+/* ── Thumbnails ── */
+.gallery-thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gallery-thumb {
+  width: 68px; height: 68px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+.gallery-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gallery-thumb.active { border-color: var(--accent); transform: scale(1.05); }
+.gallery-thumb.lamp-on-thumb { border-color: #f9a825; position: relative; }
+.gallery-thumb.lamp-on-thumb::after {
+  content: '💡';
+  position: absolute;
+  bottom: 2px; right: 2px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .gallery-thumb { width: 56px; height: 56px; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header">
@@ -20,48 +154,81 @@
 <div class="container" style="padding-bottom:80px;">
   <div class="product-detail-grid">
 
-    <!-- Image -->
+    <!-- ── Image / Gallery ── -->
     <div>
-      <div class="product-detail-img">
-        {% set emoji_map = {'Name Signs':'🏷️','Keychains':'🗝️','Decorative Models':'🗼','Functional Products':'🔧'} %}
-        {% if product['image'] and product['image'] != 'default.png' %}
-          {% if product['image'].startswith('http') %}
-            <img src="{{ product['image'] }}" alt="{{ product['name'] }}"
-                 onerror="this.style.display='none'">
+      {% set emoji_map = {'Name Signs':'🏷️','Keychains':'🗝️','Decorative Models':'🗼','Functional Products':'🔧','Lamps':'💡'} %}
+      {% set has_main = product['image'] and product['image'] != 'default.png' %}
+      {% set lamp_on_img = extra_images[0] if is_lamp and extra_images else None %}
+      {% set gallery_extras = extra_images[1:] if is_lamp and extra_images else extra_images %}
+
+      <div class="product-gallery {% if is_lamp %}lamp-product{% endif %}" id="product-gallery">
+
+        <!-- Main image display -->
+        <div class="gallery-main" id="gallery-main">
+          {% if has_main %}
+            {% set main_src = product['image'] if product['image'].startswith('http') else url_for('static', filename='images/products/' + product['image']) %}
+            <img src="{{ main_src }}" alt="{{ product['name'] }} - Off" class="visible" id="img-off" onerror="this.style.display='none'">
           {% else %}
-            <img src="{{ url_for('static', filename='images/products/' + product['image']) }}"
-                 alt="{{ product['name'] }}"
-                 onerror="this.style.display='none'">
+            <span style="font-size:6rem;">{{ emoji_map.get(product['category'], '🖨️') }}</span>
           {% endif %}
-        {% else %}
-          <span style="font-size:6rem;">{{ emoji_map.get(product['category'], '🖨️') }}</span>
+
+          {% if is_lamp and lamp_on_img %}
+            <img src="{{ lamp_on_img }}" alt="{{ product['name'] }} - On" class="hidden" id="img-on">
+            <div class="lamp-glow" id="lamp-glow"></div>
+          {% endif %}
+        </div>
+
+        <!-- Lamp toggle — only for lamps -->
+        {% if is_lamp and lamp_on_img %}
+        <div class="lamp-toggle-wrap" id="lamp-toggle" onclick="toggleLamp()" title="Toggle light on/off">
+          <span class="lamp-icon" id="lamp-icon">💡</span>
+          <div class="lamp-switch" id="lamp-switch"></div>
+          <span class="lamp-toggle-label" id="lamp-label">OFF</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:4px;">Click to see it lit up</span>
+        </div>
         {% endif %}
+
+        <!-- Thumbnails -->
+        {% if has_main or extra_images %}
+        <div class="gallery-thumbs" id="gallery-thumbs">
+          {% if has_main %}
+          <div class="gallery-thumb active {% if is_lamp %}lamp-off-thumb{% endif %}" data-idx="0" onclick="selectThumb(this, '{{ main_src }}', false)">
+            <img src="{{ main_src }}" alt="Off">
+          </div>
+          {% endif %}
+
+          {% if is_lamp and lamp_on_img %}
+          <div class="gallery-thumb lamp-on-thumb" data-idx="lamp" onclick="selectThumb(this, '{{ lamp_on_img }}', true)" title="Light On">
+            <img src="{{ lamp_on_img }}" alt="On">
+          </div>
+          {% endif %}
+
+          {% for img_url in gallery_extras %}
+          <div class="gallery-thumb" data-idx="{{ loop.index + 1 }}" onclick="selectThumb(this, '{{ img_url }}', false)">
+            <img src="{{ img_url }}" alt="View {{ loop.index + 1 }}">
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
       </div>
     </div>
 
-    <!-- Info -->
+    <!-- ── Product Info ── -->
     <div>
       <span class="product-detail-category">{{ product['category'] }}</span>
       <h1 class="product-detail-title">{{ product['name'] }}</h1>
       <div class="product-detail-price">Rs. {{ "%.2f"|format(product['price']) }}</div>
       <p class="product-detail-desc">{{ product['description'] }}</p>
 
-      <!-- Stock indicator -->
       {% if product['stock'] > 5 %}
-        <p style="color:var(--success);font-weight:600;font-size:14px;margin-bottom:20px;">
-          ✅ In Stock ({{ product['stock'] }} available)
-        </p>
+        <p style="color:var(--success);font-weight:600;font-size:14px;margin-bottom:20px;">✅ In Stock ({{ product['stock'] }} available)</p>
       {% elif product['stock'] > 0 %}
-        <p style="color:var(--warning);font-weight:600;font-size:14px;margin-bottom:20px;">
-          ⚠️ Low Stock ({{ product['stock'] }} left)
-        </p>
+        <p style="color:var(--warning);font-weight:600;font-size:14px;margin-bottom:20px;">⚠️ Low Stock ({{ product['stock'] }} left)</p>
       {% else %}
-        <p style="color:var(--danger);font-weight:600;font-size:14px;margin-bottom:20px;">
-          ❌ Out of Stock
-        </p>
+        <p style="color:var(--danger);font-weight:600;font-size:14px;margin-bottom:20px;">❌ Out of Stock</p>
       {% endif %}
 
-      <!-- Add to Cart Form -->
       {% if product['stock'] > 0 %}
       <form action="{{ url_for('add_to_cart', product_id=product['id']) }}" method="POST">
         <label class="form-label">Quantity</label>
@@ -71,19 +238,14 @@
           <button type="button" class="qty-btn" data-action="plus">+</button>
         </div>
         <div style="display:flex;gap:12px;">
-          <button type="submit" class="btn btn-primary btn-lg" style="flex:1;">
-            🛒 Add to Cart
-          </button>
+          <button type="submit" class="btn btn-primary btn-lg" style="flex:1;">🛒 Add to Cart</button>
           <a href="{{ url_for('cart') }}" class="btn btn-secondary btn-lg">View Cart</a>
         </div>
       </form>
       {% else %}
-      <button class="btn btn-secondary btn-lg" disabled style="opacity:.5;cursor:not-allowed;">
-        Out of Stock
-      </button>
+      <button class="btn btn-secondary btn-lg" disabled style="opacity:.5;cursor:not-allowed;">Out of Stock</button>
       {% endif %}
 
-      <!-- Meta info -->
       <div style="margin-top:32px;padding:20px;background:var(--bg);border-radius:var(--radius-sm);">
         <div style="display:flex;gap:24px;flex-wrap:wrap;">
           <div>
@@ -101,9 +263,10 @@
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- Related Products -->
+  <!-- Related -->
   {% if related %}
   <div style="margin-top:64px;">
     <div class="section-header" style="text-align:left;margin-bottom:28px;">
@@ -116,6 +279,66 @@
     </div>
   </div>
   {% endif %}
-</div>
 
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if is_lamp %}
+let lampOn = false;
+
+function toggleLamp() {
+  lampOn = !lampOn;
+  const gallery = document.getElementById('product-gallery');
+  const imgOff  = document.getElementById('img-off');
+  const imgOn   = document.getElementById('img-on');
+  const label   = document.getElementById('lamp-label');
+
+  if (lampOn) {
+    gallery.classList.add('lamp-on');
+    if (imgOff) { imgOff.classList.remove('visible'); imgOff.classList.add('hidden'); }
+    if (imgOn)  { imgOn.classList.remove('hidden');  imgOn.classList.add('visible'); }
+    label.textContent = 'ON';
+    // Sync thumbnail active state
+    document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+    const onThumb = document.querySelector('.lamp-on-thumb');
+    if (onThumb) onThumb.classList.add('active');
+  } else {
+    gallery.classList.remove('lamp-on');
+    if (imgOff) { imgOff.classList.remove('hidden'); imgOff.classList.add('visible'); }
+    if (imgOn)  { imgOn.classList.remove('visible'); imgOn.classList.add('hidden'); }
+    label.textContent = 'OFF';
+    document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+    const offThumb = document.querySelector('[data-idx="0"]');
+    if (offThumb) offThumb.classList.add('active');
+  }
+}
+{% endif %}
+
+function selectThumb(el, src, isLampOn) {
+  // Update active thumb
+  document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+
+  {% if is_lamp %}
+  // If selecting a thumb, sync lamp toggle accordingly
+  if (isLampOn) {
+    if (!lampOn) toggleLamp();
+  } else {
+    if (lampOn) toggleLamp();
+    // Show the selected non-lamp image in off slot
+    const imgOff = document.getElementById('img-off');
+    if (imgOff) imgOff.src = src;
+  }
+  {% else %}
+  // Non-lamp product: just swap main image
+  const mainImg = document.querySelector('#gallery-main img');
+  if (mainImg) {
+    mainImg.style.opacity = '0';
+    setTimeout(() => { mainImg.src = src; mainImg.style.opacity = '1'; }, 200);
+  }
+  {% endif %}
+}
+</script>
 {% endblock %}
