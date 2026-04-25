@@ -1592,3 +1592,32 @@ tbody tr:hover td { background: var(--bg); }
     bottom: 72px !important;
   }
 }
+
+/* ── Mobile bottom bar ── */
+.mobile-bottom-bar { display: none; }
+@media (max-width: 768px) {
+  .mobile-bottom-bar {
+    display: flex; position: fixed;
+    bottom: 0; left: 0; right: 0; z-index: 200;
+    border-top: 1.5px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,.12);
+  }
+  .mobile-bottom-btn {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; padding: 10px 8px; font-size: 11px;
+    font-weight: 700; color: var(--text-muted);
+    background: white; text-decoration: none; position: relative;
+  }
+  .mobile-bottom-btn span:first-child { font-size: 20px; }
+  .mobile-bottom-btn.mobile-bottom-cart { color: white; background: var(--accent); }
+  .mobile-bottom-cart-badge {
+    position: absolute; top: 6px; right: calc(50% - 20px);
+    background: white; color: var(--accent);
+    border-radius: 999px; font-size: 10px; font-weight: 800;
+    min-width: 17px; height: 17px; display: flex;
+    align-items: center; justify-content: center;
+    border: 1.5px solid var(--accent); padding: 0 3px;
+  }
+  body { padding-bottom: 64px; }
+}
