@@ -213,9 +213,13 @@ def init_db():
                 category TEXT,
                 image TEXT,
                 stock INTEGER DEFAULT 10,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                extra_images TEXT DEFAULT '',
+                is_lamp BOOLEAN DEFAULT FALSE
             )
         """)
+        cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS extra_images TEXT DEFAULT ''")
+        cur.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_lamp BOOLEAN DEFAULT FALSE")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
@@ -291,7 +295,13 @@ def init_db():
         cursor.execute("""CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT,
             price REAL NOT NULL, category TEXT, image TEXT, stock INTEGER DEFAULT 10,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            extra_images TEXT DEFAULT '', is_lamp INTEGER DEFAULT 0)""")
+        # Upgrade existing DB silently
+        try: cursor.execute("ALTER TABLE products ADD COLUMN extra_images TEXT DEFAULT ''")
+        except: pass
+        try: cursor.execute("ALTER TABLE products ADD COLUMN is_lamp INTEGER DEFAULT 0")
+        except: pass
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT, order_code TEXT UNIQUE NOT NULL,
             customer_name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT, address TEXT NOT NULL,
@@ -478,7 +488,16 @@ def product_detail(product_id):
         related = db.execute(
             "SELECT * FROM products WHERE category = ? AND id != ? ORDER BY RANDOM() LIMIT 4",
             (product["category"], product_id)).fetchall()
-    return render_template("product_detail.html", product=product, related=related)
+
+    product = dict(product)
+    # Parse extra_images into a list
+    raw_extras = product.get("extra_images") or ""
+    extra_images = [u.strip() for u in raw_extras.split(",") if u.strip()]
+    is_lamp = bool(product.get("is_lamp"))
+
+    return render_template("product_detail.html", product=product, related=related,
+                           extra_images=extra_images, is_lamp=is_lamp)
+
 
 
 # ---------------------------------------------------------------------------
@@ -662,6 +681,7 @@ def track_order():
 
 
 @app.route("/order-success/<int:order_id>")
+@app.route("/order-success/<int:order_id>")
 def order_success(order_id):
     db = get_db()
     if USE_POSTGRES:
@@ -796,35 +816,47 @@ def admin_products():
 @admin_required
 def admin_add_product():
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
+        name        = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
-        price = float(request.form.get("price", 0))
-        category = request.form.get("category", "")
-        stock = int(request.form.get("stock", 0))
+        price       = float(request.form.get("price", 0))
+        category    = request.form.get("category", "")
+        stock       = int(request.form.get("stock", 0))
+        is_lamp     = 1 if request.form.get("is_lamp") == "on" else 0
 
+        # Primary image (lamp-off or main)
         image_value = "default.png"
         if "image" in request.files:
             file = request.files["image"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_IMAGES):
-                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
+                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_main_{file.filename}")
                 image_value = upload_file(file, "products", filename)
+
+        # Extra images (lamp-on + additional gallery)
+        extra_urls = []
+        for f in request.files.getlist("extra_images"):
+            if f and f.filename and allowed_file(f.filename, ALLOWED_IMAGES):
+                fname = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{f.filename}")
+                url = upload_file(f, "products", fname)
+                if url: extra_urls.append(url)
+        extra_images = ",".join(extra_urls)
 
         db = get_db()
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute("INSERT INTO products (name, description, price, category, image, stock) VALUES (%s,%s,%s,%s,%s,%s)",
-                (name, description, price, category, image_value, stock))
+            cur.execute("INSERT INTO products (name, description, price, category, image, stock, extra_images, is_lamp) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                (name, description, price, category, image_value, stock, extra_images, bool(is_lamp)))
             db.commit()
         else:
-            db.execute("INSERT INTO products (name, description, price, category, image, stock) VALUES (?,?,?,?,?,?)",
-                (name, description, price, category, image_value, stock))
+            db.execute("INSERT INTO products (name, description, price, category, image, stock, extra_images, is_lamp) VALUES (?,?,?,?,?,?,?,?)",
+                (name, description, price, category, image_value, stock, extra_images, is_lamp))
             db.commit()
 
         flash("Product added successfully!", "success")
         return redirect(url_for("admin_products"))
 
-    categories = ["Name Signs", "Keychains", "Decorative Models", "Functional Products"]
+    categories = ["Name Signs", "Keychains", "Decorative Models", "Functional Products", "Lamps"]
     return render_template("admin_add_product.html", categories=categories)
+
 
 
 @app.route("/admin/products/edit/<int:product_id>", methods=["GET", "POST"])
@@ -842,34 +874,51 @@ def admin_edit_product(product_id):
         flash("Product not found.", "error"); return redirect(url_for("admin_products"))
 
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
+        name        = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
-        price = float(request.form.get("price", 0))
-        category = request.form.get("category", "")
-        stock = int(request.form.get("stock", 0))
+        price       = float(request.form.get("price", 0))
+        category    = request.form.get("category", "")
+        stock       = int(request.form.get("stock", 0))
+        is_lamp     = 1 if request.form.get("is_lamp") == "on" else 0
 
         image_value = product["image"]
         if "image" in request.files:
             file = request.files["image"]
             if file and file.filename and allowed_file(file.filename, ALLOWED_IMAGES):
-                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}")
+                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S')}_main_{file.filename}")
                 image_value = upload_file(file, "products", filename)
+
+        existing_extra = product.get("extra_images") or ""
+        new_extras = []
+        for f in request.files.getlist("extra_images"):
+            if f and f.filename and allowed_file(f.filename, ALLOWED_IMAGES):
+                fname = secure_filename(f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{f.filename}")
+                url = upload_file(f, "products", fname)
+                if url: new_extras.append(url)
+
+        if request.form.get("clear_extras") == "yes":
+            extra_images = ""
+        elif new_extras:
+            extra_images = ",".join(new_extras)
+        else:
+            extra_images = existing_extra
 
         if USE_POSTGRES:
             cur = db.cursor()
-            cur.execute("UPDATE products SET name=%s, description=%s, price=%s, category=%s, image=%s, stock=%s WHERE id=%s",
-                (name, description, price, category, image_value, stock, product_id))
+            cur.execute("UPDATE products SET name=%s, description=%s, price=%s, category=%s, image=%s, stock=%s, extra_images=%s, is_lamp=%s WHERE id=%s",
+                (name, description, price, category, image_value, stock, extra_images, bool(is_lamp), product_id))
             db.commit()
         else:
-            db.execute("UPDATE products SET name=?, description=?, price=?, category=?, image=?, stock=? WHERE id=?",
-                (name, description, price, category, image_value, stock, product_id))
+            db.execute("UPDATE products SET name=?, description=?, price=?, category=?, image=?, stock=?, extra_images=?, is_lamp=? WHERE id=?",
+                (name, description, price, category, image_value, stock, extra_images, is_lamp, product_id))
             db.commit()
 
         flash("Product updated!", "success")
         return redirect(url_for("admin_products"))
 
-    categories = ["Name Signs", "Keychains", "Decorative Models", "Functional Products"]
+    categories = ["Name Signs", "Keychains", "Decorative Models", "Functional Products", "Lamps"]
     return render_template("admin_edit_product.html", product=product, categories=categories)
+
 
 
 @app.route("/admin/products/delete/<int:product_id>", methods=["POST"])
