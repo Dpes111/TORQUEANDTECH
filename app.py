@@ -776,7 +776,7 @@ def esewa_success():
         cur = db.cursor()
         cur.execute("SELECT data FROM esewa_pending WHERE txn_uuid=%s", (txn_uuid,))
         row = cur.fetchone()
-        pending = json.loads(row[0]) if row else None
+        pending = json.loads(row["data"]) if row else None
     else:
         row = db.execute("SELECT data FROM esewa_pending WHERE txn_uuid=?", (txn_uuid,)).fetchone()
         pending = json.loads(row["data"]) if row else None
@@ -816,7 +816,7 @@ def esewa_success():
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
             (order_code, name, phone, email, address, delivery_method, delivery_charge,
              full_notes, total, "esewa_paid"))
-        order_id = cur.fetchone()[0]
+        order_id = cur.fetchone()["id"]
         for item in items:
             cur.execute("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (%s,%s,%s,%s,%s)",
                 (order_id, item["id"], item["name"], item["quantity"], item["price"]))
