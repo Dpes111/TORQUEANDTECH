@@ -1,4 +1,4 @@
-# 🖨️ PrintCraft3D — Full-Stack E-Commerce for 3D Printing
+# 🖨️ Torque and Tech — Full-Stack E-Commerce for 3D Printing
 
 A complete Flask + SQLite e-commerce website for a 3D printing business.
 
