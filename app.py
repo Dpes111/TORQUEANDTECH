@@ -6,6 +6,12 @@ Supports PostgreSQL (Supabase) + Supabase Storage for files
 import os
 import random
 import string
+import hmac
+import hashlib
+import base64
+import json
+import uuid
+import requests as http_requests
 from datetime import datetime
 from functools import wraps
 
@@ -27,6 +33,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ALLOWED_STL = {"stl", "obj"}
 ALLOWED_IMAGES = {"png", "jpg", "jpeg", "gif", "webp"}
 ALLOWED_SCREENSHOTS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+# ---------------------------------------------------------------------------
+# eSewa ePay configuration (UAT / Testing)
+# ---------------------------------------------------------------------------
+ESEWA_PRODUCT_CODE = os.environ.get("ESEWA_PRODUCT_CODE", "EPAYTEST")
+ESEWA_SECRET_KEY   = os.environ.get("ESEWA_SECRET_KEY",   "8gBm/:&EnhH.1/q")
+ESEWA_PAYMENT_URL  = os.environ.get("ESEWA_PAYMENT_URL",  "https://rc-epay.esewa.com.np/api/epay/main/v2/form")
+ESEWA_STATUS_URL   = os.environ.get("ESEWA_STATUS_URL",   "https://rc.esewa.com.np/api/epay/transaction/status/")
 
 # Keep local folders as fallback
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
@@ -625,6 +639,172 @@ def checkout():
         return redirect(url_for("order_success", order_id=order_id))
 
     return render_template("checkout.html", items=items, subtotal=subtotal, delivery_options=DELIVERY_OPTIONS)
+
+
+# ---------------------------------------------------------------------------
+# eSewa ePay helpers & routes
+# ---------------------------------------------------------------------------
+
+def esewa_sign(total_amount, transaction_uuid, product_code):
+    """Generate HMAC-SHA256 base64 signature for eSewa."""
+    message = f"total_amount={total_amount},transaction_uuid={transaction_uuid},product_code={product_code}"
+    sig = hmac.new(
+        ESEWA_SECRET_KEY.encode("utf-8"),
+        message.encode("utf-8"),
+        hashlib.sha256
+    ).digest()
+    return base64.b64encode(sig).decode("utf-8")
+
+
+@app.route("/esewa/initiate", methods=["POST"])
+def esewa_initiate():
+    """Save pending order to session and redirect to eSewa."""
+    cart_data = get_cart()
+    if not cart_data:
+        flash("Your cart is empty.", "info")
+        return redirect(url_for("products"))
+
+    items     = cart_items_detail(cart_data)
+    subtotal  = cart_total(cart_data)
+
+    name            = request.form.get("name", "").strip()
+    phone           = request.form.get("phone", "").strip()
+    email           = request.form.get("email", "").strip()
+    address         = request.form.get("address", "").strip()
+    notes           = request.form.get("notes", "").strip()
+    delivery_method = request.form.get("delivery_method", "Pickup (Free)")
+    delivery_charge = next((c for l, c in DELIVERY_OPTIONS if l == delivery_method), 0)
+    total           = round(subtotal + delivery_charge, 2)
+
+    if not all([name, phone, address]):
+        flash("Please fill in all required fields.", "error")
+        return render_template("checkout.html", items=items, subtotal=subtotal,
+                               delivery_options=DELIVERY_OPTIONS)
+
+    # Build a unique transaction ID  (date-time + short random)
+    txn_uuid = datetime.now().strftime("%y%m%d-%H%M%S") + "-" + str(random.randint(100, 999))
+
+    # Persist order info in session until eSewa confirms
+    session["pending_esewa"] = {
+        "name": name, "phone": phone, "email": email,
+        "address": address, "notes": notes,
+        "delivery_method": delivery_method,
+        "delivery_charge": delivery_charge,
+        "total": total, "txn_uuid": txn_uuid,
+        "cart_snapshot": cart_data,
+    }
+
+    signature = esewa_sign(total, txn_uuid, ESEWA_PRODUCT_CODE)
+
+    # Build the base_url for callbacks
+    base = request.host_url.rstrip("/")
+
+    return render_template("esewa_redirect.html",
+        esewa_url        = ESEWA_PAYMENT_URL,
+        amount           = total,          # no separate tax/service in this shop
+        tax_amount       = 0,
+        product_service_charge  = 0,
+        product_delivery_charge = 0,
+        total_amount     = total,
+        transaction_uuid = txn_uuid,
+        product_code     = ESEWA_PRODUCT_CODE,
+        success_url      = base + url_for("esewa_success"),
+        failure_url      = base + url_for("esewa_failure"),
+        signed_field_names = "total_amount,transaction_uuid,product_code",
+        signature        = signature,
+    )
+
+
+@app.route("/esewa/success")
+def esewa_success():
+    """eSewa redirects here after successful payment."""
+    encoded = request.args.get("data", "")
+    pending = session.get("pending_esewa")
+
+    if not encoded or not pending:
+        flash("Payment session expired. Please try again.", "error")
+        return redirect(url_for("checkout"))
+
+    try:
+        decoded = json.loads(base64.b64decode(encoded).decode("utf-8"))
+    except Exception:
+        flash("Invalid payment response. Please contact support.", "error")
+        return redirect(url_for("checkout"))
+
+    # Verify signature
+    expected_sig = esewa_sign(
+        decoded.get("total_amount", ""),
+        decoded.get("transaction_uuid", ""),
+        decoded.get("product_code", ""),
+    )
+    if decoded.get("signature") != expected_sig:
+        flash("Payment signature mismatch. Contact support.", "error")
+        return redirect(url_for("checkout"))
+
+    if decoded.get("status") != "COMPLETE":
+        flash("Payment not completed. Please try again.", "error")
+        return redirect(url_for("checkout"))
+
+    # --- Place the order ---
+    db = get_db()
+    name            = pending["name"]
+    phone           = pending["phone"]
+    email           = pending["email"]
+    address         = pending["address"]
+    notes           = pending["notes"]
+    delivery_method = pending["delivery_method"]
+    delivery_charge = pending["delivery_charge"]
+    total           = pending["total"]
+    esewa_ref       = decoded.get("transaction_code", "")
+    cart_data       = pending["cart_snapshot"]
+    items           = cart_items_detail(cart_data)
+
+    for _ in range(10):
+        order_code = generate_order_id()
+        if USE_POSTGRES:
+            cur = db.cursor()
+            cur.execute("SELECT id FROM orders WHERE order_code=%s", (order_code,))
+            if not cur.fetchone(): break
+        else:
+            if not db.execute("SELECT id FROM orders WHERE order_code=?", (order_code,)).fetchone(): break
+
+    esewa_note = f"eSewa | Ref: {esewa_ref} | TxnID: {decoded.get('transaction_uuid','')}"
+
+    if USE_POSTGRES:
+        cur = db.cursor()
+        cur.execute("""INSERT INTO orders (order_code, customer_name, phone, email, address,
+            delivery_method, delivery_charge, notes, total_price, payment_screenshot)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+            (order_code, name, phone, email, address, delivery_method, delivery_charge,
+             f"{notes} [{esewa_note}]".strip(" []"), total, "esewa_paid"))
+        order_id = cur.fetchone()["id"]
+        for item in items:
+            cur.execute("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (%s,%s,%s,%s,%s)",
+                (order_id, item["id"], item["name"], item["quantity"], item["price"]))
+        db.commit()
+    else:
+        cursor = db.execute("""INSERT INTO orders (order_code, customer_name, phone, email, address,
+            delivery_method, delivery_charge, notes, total_price, payment_screenshot)
+            VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (order_code, name, phone, email, address, delivery_method, delivery_charge,
+             f"{notes} [{esewa_note}]".strip(" []"), total, "esewa_paid"))
+        order_id = cursor.lastrowid
+        for item in items:
+            db.execute("INSERT INTO order_items (order_id, product_id, product_name, quantity, price) VALUES (?,?,?,?,?)",
+                (order_id, item["id"], item["name"], item["quantity"], item["price"]))
+        db.commit()
+
+    session.pop("cart", None)
+    session.pop("pending_esewa", None)
+    flash(f"✅ Payment confirmed via eSewa! Order {order_code} placed.", "success")
+    return redirect(url_for("order_success", order_id=order_id))
+
+
+@app.route("/esewa/failure")
+def esewa_failure():
+    session.pop("pending_esewa", None)
+    flash("eSewa payment was cancelled or failed. Please try again.", "error")
+    return redirect(url_for("checkout"))
 
 
 @app.route("/track-order")
