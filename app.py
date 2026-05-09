@@ -35,12 +35,12 @@ ALLOWED_IMAGES = {"png", "jpg", "jpeg", "gif", "webp"}
 ALLOWED_SCREENSHOTS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 # ---------------------------------------------------------------------------
-# eSewa ePay configuration (UAT / Testing)
+# eSewa ePay configuration — set all values in your .env file
 # ---------------------------------------------------------------------------
-ESEWA_PRODUCT_CODE = os.environ.get("ESEWA_PRODUCT_CODE", "EPAYTEST")
-ESEWA_SECRET_KEY   = os.environ.get("ESEWA_SECRET_KEY",   "8gBm/:&EnhH.1/q")
-ESEWA_PAYMENT_URL  = os.environ.get("ESEWA_PAYMENT_URL",  "https://rc-epay.esewa.com.np/api/epay/main/v2/form")
-ESEWA_STATUS_URL   = os.environ.get("ESEWA_STATUS_URL",   "https://rc.esewa.com.np/api/epay/transaction/status/")
+ESEWA_PRODUCT_CODE = os.environ.get("ESEWA_PRODUCT_CODE")
+ESEWA_SECRET_KEY   = os.environ.get("ESEWA_SECRET_KEY")
+ESEWA_PAYMENT_URL  = os.environ.get("ESEWA_PAYMENT_URL")
+ESEWA_STATUS_URL   = os.environ.get("ESEWA_STATUS_URL")
 
 # Keep local folders as fallback
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
