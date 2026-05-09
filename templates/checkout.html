@@ -274,65 +274,7 @@
           </div>
         </div>
 
-        <!-- Step 3: Payment -->
-        <div class="checkout-card" id="section-payment">
-          <div class="checkout-card-title">
-            <span class="step-num">3</span> Payment via QR Code
-          </div>
-
-          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;">
-            💡 <strong>How to pay:</strong> Scan the QR code below using eSewa, Khalti, or your bank app. Pay the exact total. Then take a screenshot and upload it below — this is required to confirm your order.
-          </div>
-
-          <div class="qr-box">
-            <img src="{{ url_for('static', filename='images/qr.png') }}"
-                 alt="Payment QR Code"
-                 style="width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;">
-            <div class="qr-instruction">
-              <strong>Scan to Pay</strong><br>
-              Use eSewa, Khalti, or your bank's app.<br>
-              Total to pay: <strong style="color:var(--accent);font-size:18px;" id="qr-amount">Rs. {{ "%.2f"|format(subtotal) }}</strong>
-            </div>
-            <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
-              {% for m in ['eSewa','Khalti','Bank QR'] %}
-              <div style="background:white;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;font-weight:600;">{{ m }}</div>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div style="background:var(--warning-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--warning);">
-            ⚠️ Pay first, then upload your screenshot. Your order will only be processed after admin verifies the payment.
-          </div>
-
-          <!-- Screenshot upload - REQUIRED -->
-          <div class="form-group">
-            <label class="form-label" style="font-size:15px;">
-              📸 Upload Payment Screenshot
-              <span class="required" style="font-size:13px;">— Required</span>
-            </label>
-
-            <div class="file-upload-zone" id="upload-zone">
-              <input type="file" name="payment_screenshot" id="screenshot-input" accept="image/*" style="display:none;">
-              <div id="upload-idle">
-                <div style="font-size:2.5rem;margin-bottom:8px;">📷</div>
-                <div style="font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;">Tap to upload your screenshot</div>
-                <div style="font-size:12px;color:var(--text-muted);">PNG, JPG, GIF — Required before placing order</div>
-              </div>
-              <div id="upload-done" style="display:none;">
-                <img id="preview-img" style="max-width:220px;max-height:160px;border-radius:8px;border:2px solid var(--success);margin-bottom:8px;">
-                <div id="file-name-label" style="font-size:13px;color:var(--success);font-weight:600;"></div>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Tap to change</div>
-              </div>
-            </div>
-
-            <!-- Error shown if they try to submit without uploading -->
-            <div id="screenshot-error" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;
-                 border-radius:var(--radius-sm);padding:12px 16px;margin-top:10px;
-                 color:#dc2626;font-weight:600;font-size:14px;">
-              ❌ Payment screenshot is required. Please upload a screenshot of your payment before placing the order.
-            </div>
-          </div>
-        </div>
+        <!-- Step 3: Payment -->\n        <div class=\"checkout-card\" id=\"section-payment\">\n          <div class=\"checkout-card-title\">\n            <span class=\"step-num\">3</span> Payment Method\n          </div>\n\n          <!-- Payment method toggle -->\n          <div style=\"display:flex;gap:10px;margin-bottom:20px;\">\n            <label id=\"tab-esewa\" style=\"flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;\n                   border:2px solid #60bb46;border-radius:var(--radius-sm);cursor:pointer;\n                   background:#f0fff4;font-weight:700;font-size:14px;\">\n              <input type=\"radio\" name=\"payment_method\" value=\"esewa\" checked\n                     onchange=\"switchPayment('esewa')\" style=\"accent-color:#60bb46;width:16px;height:16px;\">\n              <span style=\"font-size:1.4rem;\">💚</span> Pay with eSewa\n            </label>\n            <label id=\"tab-qr\" style=\"flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;\n                   border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;\n                   background:white;font-weight:700;font-size:14px;\">\n              <input type=\"radio\" name=\"payment_method\" value=\"qr\"\n                     onchange=\"switchPayment('qr')\" style=\"accent-color:var(--accent);width:16px;height:16px;\">\n              <span style=\"font-size:1.4rem;\">📷</span> QR / Screenshot\n            </label>\n          </div>\n\n          <!-- eSewa section -->\n          <div id=\"esewa-section\">\n            <div style=\"background:#f0fff4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;\">\n              💚 <strong>How eSewa works:</strong> Click \"Pay with eSewa\" below. You'll be redirected to eSewa's secure login page. After payment you'll return here automatically and your order will be placed.\n            </div>\n            <div style=\"background:white;border:1px solid #d1fae5;border-radius:var(--radius-sm);padding:18px;text-align:center;margin-bottom:4px;\">\n              <div style=\"font-size:2.5rem;margin-bottom:8px;\">💚</div>\n              <div style=\"font-weight:700;font-size:16px;color:#166534;\">Secure eSewa Payment</div>\n              <div style=\"font-size:13px;color:var(--text-muted);margin-top:4px;\">You will be redirected to eSewa's official payment page</div>\n              <div style=\"margin-top:12px;font-size:13px;color:var(--text-muted);\">\n                <strong>Test credentials:</strong><br>\n                eSewa ID: <code>9806800001</code> &nbsp;|&nbsp; Password: <code>Nepal@123</code><br>\n                OTP Token: <code>123456</code>\n              </div>\n            </div>\n          </div>\n\n          <!-- QR screenshot section -->\n          <div id=\"qr-section\" style=\"display:none;\">\n            <div style=\"background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;\">\n              💡 <strong>How to pay:</strong> Scan the QR code below using eSewa, Khalti, or your bank app. Pay the exact total. Then take a screenshot and upload it below.\n            </div>\n\n            <div class=\"qr-box\">\n              <img src=\"{{ url_for('static', filename='images/qr.png') }}\"\n                   alt=\"Payment QR Code\"\n                   style=\"width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;\">\n              <div class=\"qr-instruction\">\n                <strong>Scan to Pay</strong><br>\n                Use eSewa, Khalti, or your bank's app.<br>\n                Total to pay: <strong style=\"color:var(--accent);font-size:18px;\" id=\"qr-amount\">Rs. {{ \"%.2f\"|format(subtotal) }}</strong>\n              </div>\n              <div style=\"display:flex;gap:12px;justify-content:center;margin-top:16px;\">\n                {% for m in ['eSewa','Khalti','Bank QR'] %}\n                <div style=\"background:white;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;font-weight:600;\">{{ m }}</div>\n                {% endfor %}\n              </div>\n            </div>\n\n            <div style=\"background:var(--warning-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--warning);\">\n              ⚠️ Pay first, then upload your screenshot. Your order will only be processed after admin verifies the payment.\n            </div>\n\n            <!-- Screenshot upload - REQUIRED for QR method -->\n            <div class=\"form-group\">\n              <label class=\"form-label\" style=\"font-size:15px;\">\n                📸 Upload Payment Screenshot\n                <span class=\"required\" style=\"font-size:13px;\">— Required</span>\n              </label>\n\n              <div class=\"file-upload-zone\" id=\"upload-zone\">\n                <input type=\"file\" name=\"payment_screenshot\" id=\"screenshot-input\" accept=\"image/*\" style=\"display:none;\">\n                <div id=\"upload-idle\">\n                  <div style=\"font-size:2.5rem;margin-bottom:8px;\">📷</div>\n                  <div style=\"font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;\">Tap to upload your screenshot</div>\n                  <div style=\"font-size:12px;color:var(--text-muted);\">PNG, JPG, GIF — Required before placing order</div>\n                </div>\n                <div id=\"upload-done\" style=\"display:none;\">\n                  <img id=\"preview-img\" style=\"max-width:220px;max-height:160px;border-radius:8px;border:2px solid var(--success);margin-bottom:8px;\">\n                  <div id=\"file-name-label\" style=\"font-size:13px;color:var(--success);font-weight:600;\"></div>\n                  <div style=\"font-size:12px;color:var(--text-muted);margin-top:4px;\">Tap to change</div>\n                </div>\n              </div>\n\n              <div id=\"screenshot-error\" style=\"display:none;background:#fef2f2;border:1.5px solid #fca5a5;\n                   border-radius:var(--radius-sm);padding:12px 16px;margin-top:10px;\n                   color:#dc2626;font-weight:600;font-size:14px;\">\n                ❌ Payment screenshot is required. Please upload a screenshot of your payment before placing the order.\n              </div>\n            </div>\n          </div>\n\n        </div>
 
         <!-- Step 4: Confirm & Place Order (at bottom of form) -->
         <div class="checkout-confirm-card" id="section-confirm">
@@ -341,7 +283,8 @@
             <ul style="margin:10px 0 0 20px;font-size:13.5px;color:var(--text-secondary);">
               <li>Filled your name, phone and address</li>
               <li>Chosen a delivery method</li>
-              <li>Paid via QR and uploaded the screenshot</li>
+              <li id="confirm-esewa-note">Selected eSewa as your payment method</li>
+              <li id="confirm-qr-note" style="display:none;">Paid via QR and uploaded the screenshot</li>
             </ul>
           </div>
 
@@ -350,7 +293,15 @@
               <div style="font-size:12px;color:var(--text-muted);">Order Total</div>
               <div style="font-size:26px;font-weight:900;color:var(--accent);" id="bottom-total">Rs. {{ "%.2f"|format(subtotal) }}</div>
             </div>
-            <button type="submit" class="btn btn-primary btn-lg" id="place-btn-bottom" style="min-width:190px;font-size:17px;">
+            <!-- eSewa button (default) -->
+            <button type="button" id="esewa-btn-bottom" onclick="submitEsewa()"
+                    class="btn btn-lg"
+                    style="min-width:190px;font-size:17px;background:#60bb46;color:white;border:none;border-radius:var(--radius-sm);padding:14px 24px;cursor:pointer;font-weight:700;">
+              💚 Pay with eSewa
+            </button>
+            <!-- QR Place Order button (hidden by default) -->
+            <button type="submit" id="place-btn-bottom"
+                    class="btn btn-primary btn-lg" style="min-width:190px;font-size:17px;display:none;">
               ✅ Place Order
             </button>
           </div>
@@ -389,7 +340,13 @@
             <span>Total</span>
             <span style="color:var(--accent);" id="total-display">Rs. {{ "%.2f"|format(subtotal) }}</span>
           </div>
-          <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:20px;" id="place-btn-top">
+          <button type="button" id="esewa-btn-top" onclick="submitEsewa()"
+                  class="btn btn-lg btn-full"
+                  style="margin-top:20px;background:#60bb46;color:white;border:none;border-radius:var(--radius-sm);padding:14px;cursor:pointer;font-weight:700;font-size:16px;">
+            💚 Pay with eSewa
+          </button>
+          <button type="submit" id="place-btn-top"
+                  class="btn btn-primary btn-full btn-lg" style="margin-top:20px;display:none;">
             ✅ Place Order
           </button>
           <p style="font-size:12px;text-align:center;margin-top:12px;color:var(--text-muted);">
@@ -411,7 +368,13 @@
     <small>Total to pay</small>
     <span id="mobile-total">Rs. {{ "%.2f"|format(subtotal) }}</span>
   </div>
-  <button type="button" class="btn btn-primary btn-lg" onclick="mobileSubmit()" style="flex:1;max-width:200px;">
+  <button type="button" id="mobile-esewa-btn" class="btn btn-lg"
+          onclick="submitEsewa()"
+          style="flex:1;max-width:200px;background:#60bb46;color:white;border:none;border-radius:var(--radius-sm);padding:12px;font-weight:700;cursor:pointer;">
+    💚 Pay with eSewa
+  </button>
+  <button type="button" id="mobile-qr-btn" class="btn btn-primary btn-lg"
+          onclick="mobileSubmit()" style="flex:1;max-width:200px;display:none;">
     ✅ Place Order
   </button>
 </div>
@@ -423,6 +386,48 @@
 const DELIVERY = { {% for label, charge in delivery_options %}"{{ label }}": {{ charge }},{% endfor %} };
 const SUBTOTAL = {{ subtotal }};
 
+// ── Payment method switching ──
+function switchPayment(method) {
+  const isEsewa = method === 'esewa';
+
+  document.getElementById('esewa-section').style.display = isEsewa ? 'block' : 'none';
+  document.getElementById('qr-section').style.display    = isEsewa ? 'none'  : 'block';
+
+  // Bottom buttons
+  document.getElementById('esewa-btn-bottom').style.display = isEsewa ? '' : 'none';
+  document.getElementById('place-btn-bottom').style.display = isEsewa ? 'none' : '';
+
+  // Sidebar buttons
+  document.getElementById('esewa-btn-top').style.display = isEsewa ? '' : 'none';
+  document.getElementById('place-btn-top').style.display = isEsewa ? 'none' : '';
+
+  // Mobile buttons
+  document.getElementById('mobile-esewa-btn').style.display = isEsewa ? '' : 'none';
+  document.getElementById('mobile-qr-btn').style.display    = isEsewa ? 'none' : '';
+
+  // Confirm checklist note
+  document.getElementById('confirm-esewa-note').style.display = isEsewa ? '' : 'none';
+  document.getElementById('confirm-qr-note').style.display    = isEsewa ? 'none' : '';
+
+  // Tab styling
+  document.getElementById('tab-esewa').style.borderColor = isEsewa ? '#60bb46' : 'var(--border)';
+  document.getElementById('tab-esewa').style.background  = isEsewa ? '#f0fff4' : 'white';
+  document.getElementById('tab-qr').style.borderColor    = isEsewa ? 'var(--border)' : 'var(--accent)';
+  document.getElementById('tab-qr').style.background     = isEsewa ? 'white' : 'var(--accent-light)';
+
+  // Form action
+  document.getElementById('checkout-form').action = isEsewa
+    ? '{{ url_for("esewa_initiate") }}'
+    : '{{ url_for("checkout") }}';
+}
+
+// ── Validate & submit for eSewa ──
+function submitEsewa() {
+  if (!validateCommonFields()) return;
+  document.getElementById('checkout-form').action = '{{ url_for("esewa_initiate") }}';
+  document.getElementById('checkout-form').submit();
+}
+
 // Update totals when delivery changes
 function updateDelivery(radio) {
   const charge = DELIVERY[radio.value] || 0;
@@ -432,7 +437,8 @@ function updateDelivery(radio) {
   document.getElementById('delivery-display').textContent = charge === 0 ? 'Free' : 'Rs. ' + charge;
   document.getElementById('delivery-display').style.color = charge === 0 ? 'var(--success)' : 'var(--text-primary)';
   document.getElementById('total-display').textContent = totalStr;
-  document.getElementById('qr-amount').textContent = totalStr;
+  const qa = document.getElementById('qr-amount');
+  if (qa) qa.textContent = totalStr;
   document.getElementById('bottom-total').textContent = totalStr;
   document.getElementById('mobile-total').textContent = totalStr;
 
@@ -447,28 +453,13 @@ function updateDelivery(radio) {
 // Screenshot upload UX
 const zone = document.getElementById('upload-zone');
 const input = document.getElementById('screenshot-input');
-
-zone.addEventListener('click', () => input.click());
-
-zone.addEventListener('dragover', e => {
-  e.preventDefault();
-  zone.style.borderColor = 'var(--accent)';
-  zone.style.background = '#fff3e6';
-});
-zone.addEventListener('dragleave', () => {
-  zone.style.borderColor = 'var(--accent)';
-  zone.style.background = '#fff8f2';
-});
-zone.addEventListener('drop', e => {
-  e.preventDefault();
-  if (e.dataTransfer.files.length) {
-    setFileInput(e.dataTransfer.files[0]);
-  }
-});
-
-input.addEventListener('change', () => {
-  if (input.files.length) setFileInput(input.files[0]);
-});
+if (zone && input) {
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = '#fff3e6'; });
+  zone.addEventListener('dragleave', () => { zone.style.background = '#fff8f2'; });
+  zone.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) setFileInput(e.dataTransfer.files[0]); });
+  input.addEventListener('change', () => { if (input.files.length) setFileInput(input.files[0]); });
+}
 
 function setFileInput(file) {
   const reader = new FileReader();
@@ -483,7 +474,6 @@ function setFileInput(file) {
   reader.readAsDataURL(file);
 }
 
-// Helper: show inline error under a field
 function showFieldError(input, message) {
   clearFieldError(input);
   input.style.borderColor = '#e53e3e';
@@ -502,61 +492,37 @@ function clearFieldError(input) {
   if (prev) prev.remove();
 }
 
-// Clear error styling on input
 ['name','phone','address'].forEach(n => {
   const el = document.querySelector('[name="' + n + '"]');
   if (el) el.addEventListener('input', () => clearFieldError(el));
 });
 
-// Step-by-step validation on submit
-document.getElementById('checkout-form').addEventListener('submit', function(e) {
-  e.preventDefault();
-
-  // Clear all previous errors
+function validateCommonFields() {
   document.querySelectorAll('.inline-field-error').forEach(el => el.remove());
-  document.querySelectorAll('.form-control').forEach(el => {
-    el.style.borderColor = ''; el.style.background = '';
-  });
-  document.getElementById('screenshot-error').style.display = 'none';
+  document.querySelectorAll('.form-control').forEach(el => { el.style.borderColor = ''; el.style.background = ''; });
 
-  // --- Step 1: Check name ---
   const nameEl = document.querySelector('[name="name"]');
-  if (!nameEl.value.trim()) {
-    showFieldError(nameEl, 'Please enter your full name.');
-    nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    nameEl.focus();
-    return;
-  }
+  if (!nameEl.value.trim()) { showFieldError(nameEl, 'Please enter your full name.'); nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); nameEl.focus(); return false; }
 
-  // --- Step 2: Check phone ---
   const phoneEl = document.querySelector('[name="phone"]');
-  if (!phoneEl.value.trim()) {
-    showFieldError(phoneEl, 'Please enter your phone number.');
-    phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    phoneEl.focus();
-    return;
-  }
-  if (!/^[0-9+\s\-]{7,15}$/.test(phoneEl.value.trim())) {
-    showFieldError(phoneEl, 'Please enter a valid phone number.');
-    phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    phoneEl.focus();
-    return;
-  }
+  if (!phoneEl.value.trim()) { showFieldError(phoneEl, 'Please enter your phone number.'); phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); phoneEl.focus(); return false; }
+  if (!/^[0-9+\s\-]{7,15}$/.test(phoneEl.value.trim())) { showFieldError(phoneEl, 'Please enter a valid phone number.'); phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); phoneEl.focus(); return false; }
 
-  // --- Step 3: Check address ---
   const addrEl = document.querySelector('[name="address"]');
-  if (!addrEl.value.trim()) {
-    showFieldError(addrEl, 'Please enter your delivery address.');
-    addrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    addrEl.focus();
-    return;
-  }
+  if (!addrEl.value.trim()) { showFieldError(addrEl, 'Please enter your delivery address.'); addrEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); addrEl.focus(); return false; }
 
-  // --- Step 4: Delivery is always selected (radio has default), skip ---
+  return true;
+}
 
-  // --- Step 5: Payment screenshot ---
+document.getElementById('checkout-form').addEventListener('submit', function(e) {
+  const isEsewa = document.querySelector('input[name="payment_method"]:checked')?.value === 'esewa';
+  if (isEsewa) return;
+
+  e.preventDefault();
+  if (!validateCommonFields()) return;
+
   const inp = document.getElementById('screenshot-input');
-  if (!inp.files || inp.files.length === 0) {
+  if (!inp || !inp.files || inp.files.length === 0) {
     document.getElementById('screenshot-error').style.display = 'block';
     document.getElementById('upload-zone').style.borderColor = '#e53e3e';
     document.getElementById('upload-zone').style.background = '#fef2f2';
@@ -564,27 +530,21 @@ document.getElementById('checkout-form').addEventListener('submit', function(e) 
     return;
   }
 
-  // All good — disable buttons and submit
   ['place-btn-top', 'place-btn-bottom'].forEach(id => {
     const b = document.getElementById(id);
     if (b) { b.disabled = true; b.innerHTML = '⏳ Placing Order...'; }
   });
-  const mob = document.querySelector('.mobile-place-order-bar button');
-  if (mob) { mob.disabled = true; mob.innerHTML = '⏳ Please wait...'; }
   this.submit();
 });
 
-function mobileSubmit() {
-  document.getElementById('checkout-form').requestSubmit();
-}
+function mobileSubmit() { document.getElementById('checkout-form').requestSubmit(); }
 
-// Init delivery highlight
 document.addEventListener('DOMContentLoaded', () => {
   const checked = document.querySelector('input[name="delivery_method"]:checked');
   if (checked) updateDelivery(checked);
+  switchPayment('esewa');
 });
 
-// Scroll-based step indicator update
 const stepSections = [
   { el: 'section-info',     ind: 'si-info' },
   { el: 'section-delivery', ind: 'si-delivery' },
