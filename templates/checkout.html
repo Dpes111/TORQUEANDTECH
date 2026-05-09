@@ -274,7 +274,104 @@
           </div>
         </div>
 
-        <!-- Step 3: Payment -->\n        <div class=\"checkout-card\" id=\"section-payment\">\n          <div class=\"checkout-card-title\">\n            <span class=\"step-num\">3</span> Payment Method\n          </div>\n\n          <!-- Payment method toggle -->\n          <div style=\"display:flex;gap:10px;margin-bottom:20px;\">\n            <label id=\"tab-esewa\" style=\"flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;\n                   border:2px solid #60bb46;border-radius:var(--radius-sm);cursor:pointer;\n                   background:#f0fff4;font-weight:700;font-size:14px;\">\n              <input type=\"radio\" name=\"payment_method\" value=\"esewa\" checked\n                     onchange=\"switchPayment('esewa')\" style=\"accent-color:#60bb46;width:16px;height:16px;\">\n              <span style=\"font-size:1.4rem;\">💚</span> Pay with eSewa\n            </label>\n            <label id=\"tab-qr\" style=\"flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;\n                   border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;\n                   background:white;font-weight:700;font-size:14px;\">\n              <input type=\"radio\" name=\"payment_method\" value=\"qr\"\n                     onchange=\"switchPayment('qr')\" style=\"accent-color:var(--accent);width:16px;height:16px;\">\n              <span style=\"font-size:1.4rem;\">📷</span> QR / Screenshot\n            </label>\n          </div>\n\n          <!-- eSewa section -->\n          <div id=\"esewa-section\">\n            <div style=\"background:#f0fff4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;\">\n              💚 <strong>How eSewa works:</strong> Click \"Pay with eSewa\" below. You'll be redirected to eSewa's secure login page. After payment you'll return here automatically and your order will be placed.\n            </div>\n            <div style=\"background:white;border:1px solid #d1fae5;border-radius:var(--radius-sm);padding:18px;text-align:center;margin-bottom:4px;\">\n              <div style=\"font-size:2.5rem;margin-bottom:8px;\">💚</div>\n              <div style=\"font-weight:700;font-size:16px;color:#166534;\">Secure eSewa Payment</div>\n              <div style=\"font-size:13px;color:var(--text-muted);margin-top:4px;\">You will be redirected to eSewa's official payment page</div>\n              <div style=\"margin-top:12px;font-size:13px;color:var(--text-muted);\">\n                <strong>Test credentials:</strong><br>\n                eSewa ID: <code>9806800001</code> &nbsp;|&nbsp; Password: <code>Nepal@123</code><br>\n                OTP Token: <code>123456</code>\n              </div>\n            </div>\n          </div>\n\n          <!-- QR screenshot section -->\n          <div id=\"qr-section\" style=\"display:none;\">\n            <div style=\"background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;\">\n              💡 <strong>How to pay:</strong> Scan the QR code below using eSewa, Khalti, or your bank app. Pay the exact total. Then take a screenshot and upload it below.\n            </div>\n\n            <div class=\"qr-box\">\n              <img src=\"{{ url_for('static', filename='images/qr.png') }}\"\n                   alt=\"Payment QR Code\"\n                   style=\"width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;\">\n              <div class=\"qr-instruction\">\n                <strong>Scan to Pay</strong><br>\n                Use eSewa, Khalti, or your bank's app.<br>\n                Total to pay: <strong style=\"color:var(--accent);font-size:18px;\" id=\"qr-amount\">Rs. {{ \"%.2f\"|format(subtotal) }}</strong>\n              </div>\n              <div style=\"display:flex;gap:12px;justify-content:center;margin-top:16px;\">\n                {% for m in ['eSewa','Khalti','Bank QR'] %}\n                <div style=\"background:white;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;font-weight:600;\">{{ m }}</div>\n                {% endfor %}\n              </div>\n            </div>\n\n            <div style=\"background:var(--warning-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--warning);\">\n              ⚠️ Pay first, then upload your screenshot. Your order will only be processed after admin verifies the payment.\n            </div>\n\n            <!-- Screenshot upload - REQUIRED for QR method -->\n            <div class=\"form-group\">\n              <label class=\"form-label\" style=\"font-size:15px;\">\n                📸 Upload Payment Screenshot\n                <span class=\"required\" style=\"font-size:13px;\">— Required</span>\n              </label>\n\n              <div class=\"file-upload-zone\" id=\"upload-zone\">\n                <input type=\"file\" name=\"payment_screenshot\" id=\"screenshot-input\" accept=\"image/*\" style=\"display:none;\">\n                <div id=\"upload-idle\">\n                  <div style=\"font-size:2.5rem;margin-bottom:8px;\">📷</div>\n                  <div style=\"font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;\">Tap to upload your screenshot</div>\n                  <div style=\"font-size:12px;color:var(--text-muted);\">PNG, JPG, GIF — Required before placing order</div>\n                </div>\n                <div id=\"upload-done\" style=\"display:none;\">\n                  <img id=\"preview-img\" style=\"max-width:220px;max-height:160px;border-radius:8px;border:2px solid var(--success);margin-bottom:8px;\">\n                  <div id=\"file-name-label\" style=\"font-size:13px;color:var(--success);font-weight:600;\"></div>\n                  <div style=\"font-size:12px;color:var(--text-muted);margin-top:4px;\">Tap to change</div>\n                </div>\n              </div>\n\n              <div id=\"screenshot-error\" style=\"display:none;background:#fef2f2;border:1.5px solid #fca5a5;\n                   border-radius:var(--radius-sm);padding:12px 16px;margin-top:10px;\n                   color:#dc2626;font-weight:600;font-size:14px;\">\n                ❌ Payment screenshot is required. Please upload a screenshot of your payment before placing the order.\n              </div>\n            </div>\n          </div>\n\n        </div>
+
+        <!-- Step 3: Payment -->
+        <div class="checkout-card" id="section-payment">
+          <div class="checkout-card-title">
+            <span class="step-num">3</span> Payment Method
+          </div>
+
+          <!-- Payment method toggle -->
+          <div style="display:flex;gap:10px;margin-bottom:20px;">
+            <label id="tab-esewa" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;
+                   border:2px solid #60bb46;border-radius:var(--radius-sm);cursor:pointer;
+                   background:#f0fff4;font-weight:700;font-size:14px;">
+              <input type="radio" name="payment_method" value="esewa" checked
+                     onchange="switchPayment('esewa')" style="accent-color:#60bb46;width:16px;height:16px;">
+              <span style="font-size:1.4rem;">💚</span> Pay with eSewa
+            </label>
+            <label id="tab-qr" style="flex:1;display:flex;align-items:center;gap:10px;padding:14px 16px;
+                   border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;
+                   background:white;font-weight:700;font-size:14px;">
+              <input type="radio" name="payment_method" value="qr"
+                     onchange="switchPayment('qr')" style="accent-color:var(--accent);width:16px;height:16px;">
+              <span style="font-size:1.4rem;">📷</span> QR / Screenshot
+            </label>
+          </div>
+
+          <!-- eSewa section -->
+          <div id="esewa-section">
+            <div style="background:#f0fff4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;">
+              💚 <strong>How eSewa works:</strong> Click "Pay with eSewa" below. You will be redirected to eSewa's secure login page. After payment you will return here automatically and your order will be placed.
+            </div>
+            <div style="background:white;border:1px solid #d1fae5;border-radius:var(--radius-sm);padding:18px;text-align:center;margin-bottom:4px;">
+              <div style="font-size:2.5rem;margin-bottom:8px;">💚</div>
+              <div style="font-weight:700;font-size:16px;color:#166534;">Secure eSewa Payment</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">You will be redirected to eSewa's official payment page</div>
+              <div style="margin-top:12px;font-size:13px;color:var(--text-muted);">
+                <strong>Test credentials:</strong><br>
+                eSewa ID: <code>9806800001</code> &nbsp;|&nbsp; Password: <code>Nepal@123</code><br>
+                OTP Token: <code>123456</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- QR screenshot section -->
+          <div id="qr-section" style="display:none;">
+            <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:18px;font-size:13.5px;color:#166534;">
+              💡 <strong>How to pay:</strong> Scan the QR code below using eSewa, Khalti, or your bank app. Pay the exact total. Then take a screenshot and upload it below.
+            </div>
+
+            <div class="qr-box">
+              <img src="{{ url_for('static', filename='images/qr.png') }}"
+                   alt="Payment QR Code"
+                   style="width:200px;height:200px;margin:0 auto;display:block;border-radius:8px;">
+              <div class="qr-instruction">
+                <strong>Scan to Pay</strong><br>
+                Use eSewa, Khalti, or your bank's app.<br>
+                Total to pay: <strong style="color:var(--accent);font-size:18px;" id="qr-amount">Rs. {{ "%.2f"|format(subtotal) }}</strong>
+              </div>
+              <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
+                {% for m in ['eSewa','Khalti','Bank QR'] %}
+                <div style="background:white;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;font-weight:600;">{{ m }}</div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div style="background:var(--warning-light);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--warning);">
+              ⚠️ Pay first, then upload your screenshot. Your order will only be processed after admin verifies the payment.
+            </div>
+
+            <!-- Screenshot upload - REQUIRED for QR method -->
+            <div class="form-group">
+              <label class="form-label" style="font-size:15px;">
+                📸 Upload Payment Screenshot
+                <span class="required" style="font-size:13px;">— Required</span>
+              </label>
+
+              <div class="file-upload-zone" id="upload-zone">
+                <input type="file" name="payment_screenshot" id="screenshot-input" accept="image/*" style="display:none;">
+                <div id="upload-idle">
+                  <div style="font-size:2.5rem;margin-bottom:8px;">📷</div>
+                  <div style="font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;">Tap to upload your screenshot</div>
+                  <div style="font-size:12px;color:var(--text-muted);">PNG, JPG, GIF — Required before placing order</div>
+                </div>
+                <div id="upload-done" style="display:none;">
+                  <img id="preview-img" style="max-width:220px;max-height:160px;border-radius:8px;border:2px solid var(--success);margin-bottom:8px;">
+                  <div id="file-name-label" style="font-size:13px;color:var(--success);font-weight:600;"></div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Tap to change</div>
+                </div>
+              </div>
+
+              <div id="screenshot-error" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;
+                   border-radius:var(--radius-sm);padding:12px 16px;margin-top:10px;
+                   color:#dc2626;font-weight:600;font-size:14px;">
+                ❌ Payment screenshot is required. Please upload a screenshot of your payment before placing the order.
+              </div>
+            </div>
+          </div>
+
+        </div>
 
         <!-- Step 4: Confirm & Place Order (at bottom of form) -->
         <div class="checkout-confirm-card" id="section-confirm">
