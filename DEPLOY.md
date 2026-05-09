@@ -1,4 +1,4 @@
-# 🚀 Free Deployment Guide — PrintCraft3D
+# 🚀 Free Deployment Guide — Torque and Tech
 
 Three solid free options, ordered easiest → most powerful.
 
@@ -196,4 +196,3 @@ Replace the placeholder in `checkout.html` with your actual QR image:
 | Railway | ✅ ($5 credit) | ✅ | ✅ | Best overall |
 
 **Recommendation:** Start with **PythonAnywhere** (simplest), migrate to **Railway** when you need more.
-
