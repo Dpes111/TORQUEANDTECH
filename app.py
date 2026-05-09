@@ -755,11 +755,12 @@ def esewa_success():
         flash("Invalid payment response. Please contact support.", "error")
         return redirect(url_for("checkout"))
 
-    expected_sig = esewa_sign(
-        decoded.get("total_amount", ""),
-        decoded.get("transaction_uuid", ""),
-        decoded.get("product_code", ""),
-    )
+    # Verify using the fields eSewa tells us were signed
+    signed_fields = decoded.get("signed_field_names", "").split(",")
+    message = ",".join(f"{k}={decoded.get(k, '')}" for k in signed_fields if k != "signature")
+    expected_sig = base64.b64encode(
+        hmac.new(ESEWA_SECRET_KEY.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).digest()
+    ).decode("utf-8")
     if decoded.get("signature") != expected_sig:
         flash("Payment signature mismatch. Contact support.", "error")
         return redirect(url_for("checkout"))
