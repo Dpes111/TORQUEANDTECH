@@ -30,7 +30,7 @@ if not app.secret_key:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-ALLOWED_STL = {"stl", "obj"}
+ALLOWED_STL = {"stl", "obj", "png", "jpg", "jpeg", "heic", "heif"}
 ALLOWED_IMAGES = {"png", "jpg", "jpeg", "gif", "webp"}
 ALLOWED_SCREENSHOTS = {"png", "jpg", "jpeg", "gif", "webp"}
 
