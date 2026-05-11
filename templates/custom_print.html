@@ -22,7 +22,7 @@
     <div class="custom-print-hero-icon">🖨️</div>
     <div>
       <h2 style="margin-bottom:8px;">Have a design file?</h2>
-      <p style="font-size:15px;line-height:1.7;">Upload your STL or OBJ file and describe your requirements. We support FDM printing in PLA, PETG, and ABS in multiple colors. Typical turnaround: <strong>48–72 hours</strong>.</p>
+      <p style="font-size:15px;line-height:1.7;">Upload your STL, OBJ, or reference image and describe your requirements. We support FDM printing in PLA, PETG, and ABS in multiple colors. Typical turnaround: <strong>48–72 hours</strong>.</p>
     </div>
   </div>
 
@@ -75,12 +75,12 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Upload Design File (STL / OBJ)</label>
+        <label class="form-label">Upload Design File (STL / OBJ / Image)</label>
         <div class="file-upload">
-          <input type="file" name="stl_file" accept=".stl,.obj">
+          <input type="file" name="stl_file" accept=".stl,.obj,.png,.jpg,.jpeg,.heic,.heif">
           <div class="file-upload-icon">📁</div>
           <div class="file-upload-text">Click or drag your file here</div>
-          <div class="file-upload-hint">Supports .STL and .OBJ files (max 50MB)</div>
+          <div class="file-upload-hint">Supports .STL, .OBJ, .PNG, .JPG, .HEIC (max 50MB)</div>
         </div>
         <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
           Don't have a file? No problem — describe what you want in the field above and we'll design it for you.
@@ -104,7 +104,7 @@
     <h2 style="margin-bottom:24px;">Frequently Asked Questions</h2>
     <div style="display:flex;flex-direction:column;gap:12px;">
       {% for q, a in [
-        ('What file formats do you accept?', 'We accept .STL and .OBJ files — the most common 3D printing formats. If you have a different format, email us and we\'ll help.'),
+        ('What file formats do you accept?', 'We accept .STL and .OBJ 3D files, as well as .PNG, .JPG, and .HEIC reference images. If you have a different format, email us and we\'ll help.'),
         ('How long does custom printing take?', 'Most custom prints are ready within 48–72 hours depending on complexity and size. We\'ll confirm the timeline after reviewing your request.'),
         ('How do I pay for a custom order?', 'After we review your request, we\'ll send you a price quote via email. Payment can be made via eSewa, Khalti, or bank transfer.'),
         ('Can I request specific colors?', 'Yes! We have a wide range of filament colors. Just mention your preference in the description field.')
